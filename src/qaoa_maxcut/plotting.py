@@ -1,16 +1,11 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-from matplotlib.patches import Polygon
-from scipy.spatial import ConvexHull
 
 
 def plot_graph(graph: nx.Graph) -> None:
     """
     Visualize the graph used for the Max-Cut problem.
-    
-    Args:
-        graph: The NetworkX graph to plot.
     """
     pos = nx.spring_layout(graph, seed=42)
     plt.figure(figsize=(8, 6))
@@ -23,10 +18,6 @@ def plot_graph(graph: nx.Graph) -> None:
 def plot_probabilities(probs, n_wires: int) -> None:
     """
     Visualize the bitstring probabilities as a bar chart.
-    
-    Args:
-        probs: Array of probabilities for each basis state.
-        n_wires: Number of qubits (nodes in the graph).
     """
     bitstrings = [format(i, f'0{n_wires}b') for i in range(2**n_wires)]
     
@@ -42,71 +33,67 @@ def plot_probabilities(probs, n_wires: int) -> None:
 
 def plot_result_graph(graph: nx.Graph, bitstring: str) -> None:
     """
-    Visualize the Max-Cut result with shaded areas for partitions and highlighted cuts.
+    Visualize the Max-Cut result by separating nodes into two distinct columns.
+    This ensures no overlap between the two partitions and clearly shows the boundary.
     
     Args:
         graph: The problem graph.
         bitstring: The best solution found (e.g., '0101').
     """
-    # 1. Identify partitions
+    # 1. Identify partitions based on the bitstring
     group_a = [i for i, bit in enumerate(bitstring) if bit == '0']
     group_b = [i for i, bit in enumerate(bitstring) if bit == '1']
     
-    pos = nx.spring_layout(graph, seed=42)
+    # 2. Create a custom bipartite-like layout to guarantee separation
+    # Group A on the left (x=-1), Group B on the right (x=1)
+    pos = {}
+    for i, node in enumerate(group_a):
+        pos[node] = np.array([-1, i - (len(group_a)-1)/2.0])
+    for i, node in enumerate(group_b):
+        pos[node] = np.array([1, i - (len(group_b)-1)/2.0])
+
     plt.figure(figsize=(10, 8))
     ax = plt.gca()
 
-    # 2. Function to draw shaded areas around groups
-    def draw_hull(nodes, color, label):
-        if len(nodes) < 2:
-            return
-        
-        points = np.array([pos[n] for n in nodes])
-        
-        # Add a small buffer/offset to the points so the hull doesn't pass exactly through node centers
-        if len(nodes) == 2:
-            # For 2 nodes, we create a small rectangle instead of a hull
-            diff = points[1] - points[0]
-            perp = np.array([-diff[1], diff[0]]) * 0.2
-            hull_points = np.array([
-                points[0] - perp - diff*0.1,
-                points[1] - perp + diff*0.1,
-                points[1] + perp + diff*0.1,
-                points[0] + perp - diff*0.1
-            ])
-        else:
-            hull = ConvexHull(points)
-            hull_points = points[hull.vertices]
-            
-            # Inflate the hull slightly
-            center = np.mean(points, axis=0)
-            hull_points = center + (hull_points - center) * 1.4
+    # 3. Draw non-overlapping background panels
+    # Left panel (Group A)
+    ax.add_patch(plt.Rectangle((-1.5, -max(len(group_a), len(group_b))), 1.4, 2*max(len(group_a), len(group_b)), 
+                               color='blue', alpha=0.1, label='Partition A (0)'))
+    # Right panel (Group B)
+    ax.add_patch(plt.Rectangle((0.1, -max(len(group_a), len(group_b))), 1.4, 2*max(len(group_a), len(group_b)), 
+                               color='red', alpha=0.1, label='Partition B (1)'))
 
-        poly = Polygon(hull_points, alpha=0.2, color=color, label=label)
-        ax.add_patch(poly)
-
-    # Draw shaded areas
-    draw_hull(group_a, 'blue', 'Group A (Partition 0)')
-    draw_hull(group_b, 'red', 'Group B (Partition 1)')
-
-    # 3. Identify and draw edges
+    # 4. Draw edges
     cut_edges = [(u, v) for u, v in graph.edges() if bitstring[u] != bitstring[v]]
     uncut_edges = [(u, v) for u, v in graph.edges() if bitstring[u] == bitstring[v]]
 
-    # Draw cut edges (The "Boundary")
-    nx.draw_networkx_edges(graph, pos, edgelist=cut_edges, width=4, 
-                           edge_color='black', style='-', label='Cut Edges (Boundary)')
-    # Draw uncut edges
+    # Cut edges represent the "Boundary" crossing the middle
+    nx.draw_networkx_edges(graph, pos, edgelist=cut_edges, width=3, 
+                           edge_color='black', style='-', alpha=0.8)
+    
+    # Uncut edges remain inside their respective partitions
     nx.draw_networkx_edges(graph, pos, edgelist=uncut_edges, width=1.5, 
-                           edge_color='gray', alpha=0.5, label='Internal Edges')
+                           edge_color='gray', style='--', alpha=0.4)
 
-    # 4. Draw nodes
-    node_colors = ['blue' if i in group_a else 'red' for i in range(len(bitstring))]
-    nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_size=800, edgecolors='white', linewidths=2)
+    # 5. Draw nodes
+    nx.draw_networkx_nodes(graph, pos, nodelist=group_a, node_color='blue', node_size=800, edgecolors='black')
+    nx.draw_networkx_nodes(graph, pos, nodelist=group_b, node_color='red', node_size=800, edgecolors='black')
+    
+    # Add labels
     nx.draw_networkx_labels(graph, pos, font_size=14, font_color='white', font_weight='bold')
 
-    plt.title(f"Max-Cut Result: Bitstring {bitstring}\nClear Partitioning & Cut Boundary", fontsize=15)
-    plt.legend(loc='upper right', frameon=True)
+    plt.title(f"Max-Cut Result: Bitstring {bitstring}\nNodes partitioned into two non-overlapping areas", fontsize=15)
+    
+    # Custom legend entries
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='blue', lw=0, marker='o', markersize=10, label='Group A (0)'),
+        Line2D([0], [0], color='red', lw=0, marker='o', markersize=10, label='Group B (1)'),
+        Line2D([0], [0], color='black', lw=2, label='Cut Edge (Boundary)'),
+        Line2D([0], [0], color='gray', lw=1, ls='--', label='Uncut Edge')
+    ]
+    ax.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=2)
+    
     plt.axis('off')
     plt.tight_layout()
     plt.show()
