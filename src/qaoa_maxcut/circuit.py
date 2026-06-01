@@ -4,50 +4,61 @@ import networkx as nx
 
 def apply_qaoa_layer(gamma: float, beta: float, cost_h, mixer_h) -> None:
     """
-    Apply one QAOA layer consisting of the cost and mixer operators.
+    Apply a single QAOA layer consisting of a cost operator and a mixer operator.
     
+    Mathematically, this applies the unitary evolution e^{-i * beta * H_M} e^{-i * gamma * H_C}
+    to the quantum state.
+
     Args:
-        gamma: Parameter for the cost Hamiltonian evolution.
-        beta: Parameter for the mixer Hamiltonian evolution.
-        cost_h: The cost Hamiltonian (problem-specific).
-        mixer_h: The mixer Hamiltonian (e.g., sum of PauliX).
+        gamma (float): The variational parameter for the cost Hamiltonian.
+        beta (float): The variational parameter for the mixer Hamiltonian.
+        cost_h: The cost Hamiltonian encoding the Max-Cut problem.
+        mixer_h: The mixer Hamiltonian used to explore the state space.
     """
+    # Apply the time evolution of the cost Hamiltonian
     qml.qaoa.cost_layer(gamma, cost_h)
+    # Apply the time evolution of the mixer Hamiltonian
     qml.qaoa.mixer_layer(beta, mixer_h)
 
 
 def create_qaoa_circuit(graph: nx.Graph, cost_h, mixer_h):
     """
-    Create a QNode that evaluates the expectation value of the cost Hamiltonian.
+    Create a quantum circuit (QNode) that evaluates the expectation value of the cost Hamiltonian.
     
-    This version supports multiple layers (p >= 1) by iterating over arrays of 
-    gamma and beta parameters.
+    This circuit is used during the classical optimization loop. The optimizer adjusts 
+    the gammas and betas to minimize the expectation value (which corresponds to maximizing the cut).
 
     Args:
-        graph: The graph representing the Max-Cut instance.
+        graph (nx.Graph): The graph representing the Max-Cut instance.
         cost_h: The cost Hamiltonian.
         mixer_h: The mixer Hamiltonian.
     
     Returns:
-        A QNode that takes a list of parameters [[gamma1, gamma2, ...], [beta1, beta2, ...]]
-        and returns the expectation value of the cost Hamiltonian.
+        function: A PennyLane QNode that takes variational parameters and returns a scalar cost.
     """
     n_wires = len(graph.nodes)
+    # Initialize a local quantum simulator with a wire for each node in the graph
     dev = qml.device("default.qubit", wires=n_wires)
 
     @qml.qnode(dev)
     def circuit(params):
-        # Initial state: superposition of all basis states
+        """
+        The executable quantum circuit.
+        Args:
+            params: A 2D array where params[0] are gammas and params[1] are betas.
+        """
+        # Step 1: Initialization. Create an equal superposition of all possible states (cuts).
+        # This is done by applying a Hadamard gate to every qubit.
         for wire in range(n_wires):
             qml.Hadamard(wires=wire)
 
-        # Apply p layers of QAOA
+        # Step 2: Apply p layers of QAOA.
         gammas = params[0]
         betas = params[1]
         for gamma, beta in zip(gammas, betas):
             apply_qaoa_layer(gamma, beta, cost_h, mixer_h)
 
-        # We return the expectation value of the cost Hamiltonian to optimize
+        # Step 3: Measurement. Return the expectation value of the cost Hamiltonian.
         return qml.expval(cost_h)
 
     return circuit
@@ -55,34 +66,35 @@ def create_qaoa_circuit(graph: nx.Graph, cost_h, mixer_h):
 
 def create_sampling_circuit(graph: nx.Graph, cost_h, mixer_h):
     """
-    Create a QNode that returns the probability distribution of the states.
+    Create a quantum circuit (QNode) that returns the probability distribution of all basis states.
     
-    This is used after optimization to identify the most probable solutions (cuts).
+    This circuit is used *after* optimization to identify the most probable bitstrings, 
+    which represent our best guesses for the optimal Max-Cut partition.
 
     Args:
-        graph: The graph representing the Max-Cut instance.
+        graph (nx.Graph): The graph representing the Max-Cut instance.
         cost_h: The cost Hamiltonian.
         mixer_h: The mixer Hamiltonian.
     
     Returns:
-        A QNode that takes the optimized parameters and returns probabilities for all 2^n states.
+        function: A PennyLane QNode that takes optimized parameters and returns a probability array.
     """
     n_wires = len(graph.nodes)
     dev = qml.device("default.qubit", wires=n_wires)
 
     @qml.qnode(dev)
     def circuit(params):
-        # Initial state: superposition of all basis states
+        # Prepare the equal superposition state
         for wire in range(n_wires):
             qml.Hadamard(wires=wire)
 
-        # Apply p layers of QAOA
+        # Apply the optimized QAOA layers
         gammas = params[0]
         betas = params[1]
         for gamma, beta in zip(gammas, betas):
             apply_qaoa_layer(gamma, beta, cost_h, mixer_h)
 
-        # Return the probability of each bitstring (basis state)
+        # Instead of expectation value, return the probability of measuring each possible bitstring
         return qml.probs(wires=range(n_wires))
 
     return circuit
