@@ -48,10 +48,8 @@ def plot_cost_history(cost_history: list) -> None:
 def plot_result_graph(graph: nx.Graph, bitstring: str) -> None:
     """
     Visualize the Max-Cut result by calculating a mathematical decision boundary.
-    Uses a custom Radial Basis Function (RBF) potential to find the separating 
-    function f(x,y) = 0 on the Cartesian plane.
+    Displays the explicit RBF equation f(x,y) = 0 used to separate the classes.
     """
-    # 1. Define nodes in a Cartesian plane (Square Layout)
     X = np.array([
         [0, 1], # Node 0
         [0, 0], # Node 1
@@ -59,57 +57,68 @@ def plot_result_graph(graph: nx.Graph, bitstring: str) -> None:
         [1, 1]  # Node 3
     ])
     
-    # Weights based on the bitstring: 0 -> +1, 1 -> -1
     weights = np.array([1.0 if bit == '0' else -1.0 for bit in bitstring])
 
-    # 2. Create a grid to evaluate the decision function
     x_min, x_max = -0.5, 1.5
     y_min, y_max = -0.5, 1.5
     xx, yy = np.meshgrid(np.linspace(x_min, x_max, 400), np.linspace(y_min, y_max, 400))
     
-    # 3. Calculate the Mathematical Decision Function f(x, y)
     f_xy = np.zeros_like(xx)
     sigma = 0.5 
+    sigma_sq2 = 2 * sigma**2
     
+    # Build the LaTeX string for the function
+    equation_parts = []
     for i in range(len(X)):
         xi, yi = X[i]
         dist_sq = (xx - xi)**2 + (yy - yi)**2
-        f_xy += weights[i] * np.exp(-dist_sq / (2 * sigma**2))
+        w = weights[i]
+        f_xy += w * np.exp(-dist_sq / sigma_sq2)
+        
+        # Format the term for the equation
+        sign = "+" if w > 0 else "-"
+        term = rf"{sign} e^{{-\frac{{(x - {xi})^2 + (y - {yi})^2}}{{{sigma_sq2}}}_{{}}}}"
+        equation_parts.append(term)
 
-    plt.figure(figsize=(10, 8))
+    # Combine parts into a single LaTeX equation
+    equation_str = "$f(x, y) = " + " ".join(equation_parts) + " = 0$"
+
+    plt.figure(figsize=(12, 10)) # Slightly taller to fit the equation
     ax = plt.gca()
 
-    # 4. Draw the areas defined by the sign of f(x, y)
     plt.contourf(xx, yy, f_xy > 0, levels=[-0.5, 0.5, 1.5], colors=['#e0f2fe', '#a0d8f1'], alpha=0.6)
 
-    # 5. Draw the CONTINUOUS MATHEMATICAL DECISION BOUNDARY (f(x, y) = 0)
+    # Draw the Decision Boundary
     plt.contour(xx, yy, f_xy, levels=[0], colors='red', linewidths=4, linestyles='solid')
 
-    # 6. Draw the Graph structure on the Cartesian plane
     pos = {i: X[i] for i in range(len(X))}
     
-    # Highlight edges that cross the boundary
-    # Note: Drawing order defines layering instead of zorder for compatibility
+    # Highlight edges
     for u, v in graph.edges():
         is_cut = bitstring[u] != bitstring[v]
         color = '#d32f2f' if is_cut else 'black'
         width = 4 if is_cut else 2
         plt.plot([pos[u][0], pos[v][0]], [pos[u][1], pos[v][1]], color=color, lw=width)
 
-    # 7. Draw the nodes as points (white circles with labels)
+    # Draw nodes
     nx.draw_networkx_nodes(graph, pos, node_color='white', node_size=1800, edgecolors='black', linewidths=2)
     nx.draw_networkx_labels(graph, pos, font_size=24, font_family='sans-serif', font_weight='bold')
 
-    # Labels and Grid
-    plt.text(-0.3, 1.3, 'Area A', fontsize=20, color='#01579b', fontweight='bold')
-    plt.text(-0.3, -0.3, 'Area B', fontsize=20, color='#01579b', fontweight='bold')
+    plt.text(-0.3, 1.3, 'Area A (+)', fontsize=20, color='#01579b', fontweight='bold')
+    plt.text(-0.3, -0.3, 'Area B (-)', fontsize=20, color='#01579b', fontweight='bold')
     
-    plt.title(f"Max-Cut Decision Boundary (f(x,y) = 0)\nMathematical separator for solution {bitstring}", fontsize=16)
+    # Add the MATHEMATICAL EQUATION to the plot
+    plt.text(0.5, -0.65, equation_str, fontsize=14, ha='center', 
+             bbox=dict(facecolor='white', alpha=0.8, edgecolor='gray', boxstyle='round,pad=0.5'))
+
+    plt.title(f"Max-Cut Decision Boundary\nMathematical separator for solution {bitstring}", fontsize=16)
     plt.xlabel("X Coordinate")
     plt.ylabel("Y Coordinate")
     plt.grid(True, linestyle=':', alpha=0.4)
     
-    # Legend
+    # Adjust layout to fit everything
+    plt.subplots_adjust(bottom=0.2)
+    
     from matplotlib.lines import Line2D
     legend_elements = [
         Line2D([0], [0], color='red', lw=4, label='Decision Boundary: f(x,y)=0'),
@@ -117,5 +126,4 @@ def plot_result_graph(graph: nx.Graph, bitstring: str) -> None:
     ]
     ax.legend(handles=legend_elements, loc='upper right')
 
-    plt.tight_layout()
     plt.show()
