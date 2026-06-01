@@ -47,54 +47,70 @@ def plot_cost_history(cost_history: list) -> None:
 
 def plot_result_graph(graph: nx.Graph, bitstring: str) -> None:
     """
-    Visualize the Max-Cut result matching the reference infographic style.
-    Uses a smooth boundary that wraps around nodes to show the partition.
+    Visualize the Max-Cut result with a continuous decision boundary 
+    that physically cuts the edges.
     """
-    # 1. Fixed Square Layout as in the reference image
+    # 1. Fixed Square Layout
     pos = {0: np.array([0, 1]), 1: np.array([0, 0]), 2: np.array([1, 0]), 3: np.array([1, 1])}
 
     plt.figure(figsize=(10, 8))
     ax = plt.gca()
 
-    # 2. Create a grid for the decision boundary
-    x_min, x_max = -0.6, 1.6
-    y_min, y_max = -0.6, 1.6
-    xx, yy = np.meshgrid(np.linspace(x_min, x_max, 300), np.linspace(y_min, y_max, 300))
+    # 2. Identify partitions
+    group_a = [i for i, bit in enumerate(bitstring) if bit == '0']
+    group_b = [i for i, bit in enumerate(bitstring) if bit == '1']
     
-    # 3. Potential field to define the boundary
-    # We want a boundary that separates nodes based on the bitstring
+    # 3. Create a smooth field to define the boundary
+    x_min, x_max = -0.5, 1.5
+    y_min, y_max = -0.5, 1.5
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, 400), np.linspace(y_min, y_max, 400))
+    
     potential = np.zeros_like(xx)
-    sigma = 0.5 
-    
+    sigma = 0.5
     for i, bit in enumerate(bitstring):
         xi, yi = pos[i]
         dist_sq = (xx - xi)**2 + (yy - yi)**2
-        # Sign determines the area
         weight = 1.0 if bit == '0' else -1.0
         potential += weight * np.exp(-dist_sq / (2 * sigma**2))
 
-    # 4. Draw the smooth colored regions (Area A and Area B)
-    # Using the exact colors from the reference (shades of light blue)
-    from matplotlib.colors import ListedColormap
-    cmap = ListedColormap(['#e1f5fe', '#81d4fa']) 
-    plt.contourf(xx, yy, potential > 0, levels=[-0.5, 0.5, 1.5], cmap=cmap)
+    # 4. Color the two areas (distinctly but lightly)
+    ax.contourf(xx, yy, potential > 0, levels=[-0.5, 0.5, 1.5], colors=['#e0f2fe', '#a0d8f1'], alpha=0.5)
 
-    # 5. Draw the DECISION BOUNDARY (Dashed black line as in the reference)
-    plt.contour(xx, yy, potential, levels=[0], colors='black', linestyles='dashed', linewidths=2.5)
+    # 5. Draw the CONTINUOUS DECISION BOUNDARY
+    # This line explicitly separates the nodes and intersects the edges
+    ax.contour(xx, yy, potential, levels=[0], colors='red', linewidths=3, linestyles='solid')
 
-    # 6. Draw edges (Solid black lines)
-    nx.draw_networkx_edges(graph, pos, width=2, edge_color='black')
+    # 6. Draw edges with highlight on the ones being cut
+    for u, v in graph.edges():
+        color = 'black'
+        width = 2
+        style = 'solid'
+        
+        # If the edge is cut, we can make it more prominent to show the intersection
+        if bitstring[u] != bitstring[v]:
+            width = 4
+            color = '#d32f2f' # Dark red for cut edges
+        
+        ax.annotate("", xy=pos[v], xytext=pos[u],
+                    arrowprops=dict(arrowstyle="-", color=color, lw=width, ls=style))
 
-    # 7. Draw nodes (White circles with labels)
-    nx.draw_networkx_nodes(graph, pos, node_color='white', node_size=1800, edgecolors='black', linewidths=1.5)
-    nx.draw_networkx_labels(graph, pos, font_size=24, font_family='sans-serif')
+    # 7. Draw nodes as white circles
+    nx.draw_networkx_nodes(graph, pos, node_color='white', node_size=1800, edgecolors='black', linewidths=2)
+    nx.draw_networkx_labels(graph, pos, font_size=24, font_family='sans-serif', font_weight='bold')
 
-    # Add Region Labels
-    # Determine where to place 'A' and 'B' based on the potential field
-    plt.text(-0.4, 0.8, 'A', fontsize=35, color='#01579b', fontweight='bold', alpha=0.7)
-    plt.text(-0.4, 0.2, 'B', fontsize=35, color='#01579b', fontweight='bold', alpha=0.7)
+    # Add labels
+    plt.text(-0.3, 1.3, 'Group A', fontsize=20, color='#0369a1', fontweight='bold')
+    plt.text(-0.3, -0.3, 'Group B', fontsize=20, color='#0369a1', fontweight='bold')
+    
+    # Legend for the "Cut"
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='red', lw=3, label='Decision Boundary (The Cut)'),
+        Line2D([0], [0], color='#d32f2f', lw=4, label='Cut Edges')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right')
 
-    plt.title(f"Max-Cut Decision Boundary (Solution: {bitstring})", fontsize=16, pad=20)
+    plt.title(f"MAX-CUT: The Decision Boundary intersects the edges\nSolution: {bitstring}", fontsize=16, pad=20)
     plt.axis('off')
     plt.tight_layout()
     plt.show()
