@@ -33,59 +33,61 @@ def plot_probabilities(probs, n_wires: int) -> None:
 
 def plot_result_graph(graph: nx.Graph, bitstring: str) -> None:
     """
-    Visualize the Max-Cut result with colored background regions and a dashed boundary.
-    This style mimics the infographic provided by the user.
+    Visualize the Max-Cut result with a smooth decision boundary.
+    Uses a potential field approach (Radial Basis Functions) to create a 
+    smooth separation between Group A and Group B nodes.
     
     Args:
         graph: The problem graph.
         bitstring: The best solution found (e.g., '0101').
     """
-    # 1. Define positions (Square layout for 4 nodes, or circular for more)
+    # 1. Define positions
     if len(graph.nodes) == 4:
+        # Standard square layout as in the reference image
         pos = {0: np.array([0, 1]), 1: np.array([0, 0]), 2: np.array([1, 0]), 3: np.array([1, 1])}
     else:
-        pos = nx.circular_layout(graph)
+        pos = nx.spring_layout(graph, seed=42)
 
     plt.figure(figsize=(10, 8))
     ax = plt.gca()
 
-    # 2. Create a grid to color the background based on proximity to nodes
-    x_range = np.linspace(-0.5, 1.5, 200)
-    y_range = np.linspace(-0.5, 1.5, 200)
-    xx, yy = np.meshgrid(x_range, y_range)
+    # 2. Create a grid for the decision boundary
+    x_min, x_max = -0.5, 1.5
+    y_min, y_max = -0.5, 1.5
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, 200), np.linspace(y_min, y_max, 200))
     
-    # Calculate which group is nearest for each point in the grid
-    grid_points = np.c_[xx.ravel(), yy.ravel()]
-    node_points = np.array([pos[i] for i in range(len(graph.nodes))])
-    node_groups = np.array([int(bit) for bit in bitstring])
+    # 3. Calculate a "Potential Field"
+    # Nodes in Group A (0) have positive potential, Group B (1) have negative
+    potential = np.zeros_like(xx)
+    sigma = 0.6  # Smoothness parameter
     
-    from scipy.spatial import KDTree
-    tree = KDTree(node_points)
-    _, nearest_node_idx = tree.query(grid_points)
-    grid_groups = node_groups[nearest_node_idx].reshape(xx.shape)
+    for i, bit in enumerate(bitstring):
+        xi, yi = pos[i]
+        dist_sq = (xx - xi)**2 + (yy - yi)**2
+        weight = 1.0 if bit == '0' else -1.0
+        potential += weight * np.exp(-dist_sq / (2 * sigma**2))
 
-    # 3. Draw the colored background regions
+    # 4. Draw the smooth colored regions
+    # Group A: Blue-ish, Group B: Light-blue-ish
     from matplotlib.colors import ListedColormap
-    # Light blue for Group A (0), Lighter blue for Group B (1)
-    cmap = ListedColormap(['#a0d8f1', '#e0f2fe']) 
-    plt.contourf(xx, yy, grid_groups, levels=[-0.5, 0.5, 1.5], cmap=cmap)
+    cmap = ListedColormap(['#e0f2fe', '#a0d8f1']) # Order reversed for potential sign
+    plt.contourf(xx, yy, potential > 0, levels=[-0.5, 0.5, 1.5], cmap=cmap)
 
-    # 4. Draw the dashed boundary line (The "Cut")
-    plt.contour(xx, yy, grid_groups, levels=[0.5], colors='black', linestyles='dashed', linewidths=2)
+    # 5. Draw the Decision Boundary (Zero-potential contour)
+    plt.contour(xx, yy, potential, levels=[0], colors='black', linestyles='dashed', linewidths=2.5)
 
-    # 5. Draw edges
-    # For this visualization, all edges are drawn similarly, but the boundary line shows the cut
-    nx.draw_networkx_edges(graph, pos, width=2, edge_color='black', alpha=0.7)
+    # 6. Draw edges
+    nx.draw_networkx_edges(graph, pos, width=2, edge_color='black', alpha=0.8)
 
-    # 6. Draw nodes (white circles with labels as in the image)
-    nx.draw_networkx_nodes(graph, pos, node_color='white', node_size=1200, edgecolors='black', linewidths=1.5)
-    nx.draw_networkx_labels(graph, pos, font_size=18, font_family='sans-serif', font_weight='normal')
+    # 7. Draw nodes (White circles as in the image)
+    nx.draw_networkx_nodes(graph, pos, node_color='white', node_size=1500, edgecolors='black', linewidths=2)
+    nx.draw_networkx_labels(graph, pos, font_size=20, font_family='sans-serif')
 
-    # Add labels A and B to the regions
-    plt.text(-0.3, 0.7, 'A', fontsize=30, alpha=0.6, fontweight='bold')
-    plt.text(-0.3, 0.2, 'B', fontsize=30, alpha=0.6, fontweight='bold')
+    # Add Region Labels
+    plt.text(-0.35, 1.3, 'Area A', fontsize=20, color='#0369a1', fontweight='bold')
+    plt.text(-0.35, -0.3, 'Area B', fontsize=20, color='#0369a1', fontweight='bold')
 
-    plt.title(f"Max-Cut Solution: {bitstring}", fontsize=15, pad=20)
+    plt.title(f"Max-Cut Decision Boundary (Solution: {bitstring})", fontsize=16, pad=20)
     plt.axis('off')
     plt.tight_layout()
     plt.show()
