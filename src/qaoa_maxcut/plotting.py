@@ -33,67 +33,59 @@ def plot_probabilities(probs, n_wires: int) -> None:
 
 def plot_result_graph(graph: nx.Graph, bitstring: str) -> None:
     """
-    Visualize the Max-Cut result by separating nodes into two distinct columns.
-    This ensures no overlap between the two partitions and clearly shows the boundary.
+    Visualize the Max-Cut result with colored background regions and a dashed boundary.
+    This style mimics the infographic provided by the user.
     
     Args:
         graph: The problem graph.
         bitstring: The best solution found (e.g., '0101').
     """
-    # 1. Identify partitions based on the bitstring
-    group_a = [i for i, bit in enumerate(bitstring) if bit == '0']
-    group_b = [i for i, bit in enumerate(bitstring) if bit == '1']
-    
-    # 2. Create a custom bipartite-like layout to guarantee separation
-    # Group A on the left (x=-1), Group B on the right (x=1)
-    pos = {}
-    for i, node in enumerate(group_a):
-        pos[node] = np.array([-1, i - (len(group_a)-1)/2.0])
-    for i, node in enumerate(group_b):
-        pos[node] = np.array([1, i - (len(group_b)-1)/2.0])
+    # 1. Define positions (Square layout for 4 nodes, or circular for more)
+    if len(graph.nodes) == 4:
+        pos = {0: np.array([0, 1]), 1: np.array([0, 0]), 2: np.array([1, 0]), 3: np.array([1, 1])}
+    else:
+        pos = nx.circular_layout(graph)
 
     plt.figure(figsize=(10, 8))
     ax = plt.gca()
 
-    # 3. Draw non-overlapping background panels
-    # Left panel (Group A)
-    ax.add_patch(plt.Rectangle((-1.5, -max(len(group_a), len(group_b))), 1.4, 2*max(len(group_a), len(group_b)), 
-                               color='blue', alpha=0.1, label='Partition A (0)'))
-    # Right panel (Group B)
-    ax.add_patch(plt.Rectangle((0.1, -max(len(group_a), len(group_b))), 1.4, 2*max(len(group_a), len(group_b)), 
-                               color='red', alpha=0.1, label='Partition B (1)'))
-
-    # 4. Draw edges
-    cut_edges = [(u, v) for u, v in graph.edges() if bitstring[u] != bitstring[v]]
-    uncut_edges = [(u, v) for u, v in graph.edges() if bitstring[u] == bitstring[v]]
-
-    # Cut edges represent the "Boundary" crossing the middle
-    nx.draw_networkx_edges(graph, pos, edgelist=cut_edges, width=3, 
-                           edge_color='black', style='-', alpha=0.8)
+    # 2. Create a grid to color the background based on proximity to nodes
+    x_range = np.linspace(-0.5, 1.5, 200)
+    y_range = np.linspace(-0.5, 1.5, 200)
+    xx, yy = np.meshgrid(x_range, y_range)
     
-    # Uncut edges remain inside their respective partitions
-    nx.draw_networkx_edges(graph, pos, edgelist=uncut_edges, width=1.5, 
-                           edge_color='gray', style='--', alpha=0.4)
+    # Calculate which group is nearest for each point in the grid
+    grid_points = np.c_[xx.ravel(), yy.ravel()]
+    node_points = np.array([pos[i] for i in range(len(graph.nodes))])
+    node_groups = np.array([int(bit) for bit in bitstring])
+    
+    from scipy.spatial import KDTree
+    tree = KDTree(node_points)
+    _, nearest_node_idx = tree.query(grid_points)
+    grid_groups = node_groups[nearest_node_idx].reshape(xx.shape)
 
-    # 5. Draw nodes
-    nx.draw_networkx_nodes(graph, pos, nodelist=group_a, node_color='blue', node_size=800, edgecolors='black')
-    nx.draw_networkx_nodes(graph, pos, nodelist=group_b, node_color='red', node_size=800, edgecolors='black')
-    
-    # Add labels
-    nx.draw_networkx_labels(graph, pos, font_size=14, font_color='white', font_weight='bold')
+    # 3. Draw the colored background regions
+    from matplotlib.colors import ListedColormap
+    # Light blue for Group A (0), Lighter blue for Group B (1)
+    cmap = ListedColormap(['#a0d8f1', '#e0f2fe']) 
+    plt.contourf(xx, yy, grid_groups, levels=[-0.5, 0.5, 1.5], cmap=cmap)
 
-    plt.title(f"Max-Cut Result: Bitstring {bitstring}\nNodes partitioned into two non-overlapping areas", fontsize=15)
-    
-    # Custom legend entries
-    from matplotlib.lines import Line2D
-    legend_elements = [
-        Line2D([0], [0], color='blue', lw=0, marker='o', markersize=10, label='Group A (0)'),
-        Line2D([0], [0], color='red', lw=0, marker='o', markersize=10, label='Group B (1)'),
-        Line2D([0], [0], color='black', lw=2, label='Cut Edge (Boundary)'),
-        Line2D([0], [0], color='gray', lw=1, ls='--', label='Uncut Edge')
-    ]
-    ax.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=2)
-    
+    # 4. Draw the dashed boundary line (The "Cut")
+    plt.contour(xx, yy, grid_groups, levels=[0.5], colors='black', linestyles='dashed', linewidths=2)
+
+    # 5. Draw edges
+    # For this visualization, all edges are drawn similarly, but the boundary line shows the cut
+    nx.draw_networkx_edges(graph, pos, width=2, edge_color='black', alpha=0.7)
+
+    # 6. Draw nodes (white circles with labels as in the image)
+    nx.draw_networkx_nodes(graph, pos, node_color='white', node_size=1200, edgecolors='black', linewidths=1.5)
+    nx.draw_networkx_labels(graph, pos, font_size=18, font_family='sans-serif', font_weight='normal')
+
+    # Add labels A and B to the regions
+    plt.text(-0.3, 0.7, 'A', fontsize=30, alpha=0.6, fontweight='bold')
+    plt.text(-0.3, 0.2, 'B', fontsize=30, alpha=0.6, fontweight='bold')
+
+    plt.title(f"Max-Cut Solution: {bitstring}", fontsize=15, pad=20)
     plt.axis('off')
     plt.tight_layout()
     plt.show()
