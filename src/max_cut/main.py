@@ -3,9 +3,10 @@ from pennylane import numpy as np
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, BarColumn, TextColumn
+from rich.prompt import Prompt, IntPrompt
 
 # Importazioni dai moduli locali
-from max_cut.utils import create_cycle_graph
+from max_cut import utils
 from max_cut.plotting import plot_dashboard
 from max_cut.components import build_maxcut_hamiltonians
 from max_cut.circuit import create_qaoa_circuit, create_sampling_circuit
@@ -13,63 +14,62 @@ from max_cut.circuit import create_qaoa_circuit, create_sampling_circuit
 
 def main() -> None:
     """
-    Script principale per la dimostrazione di QAOA applicato a Max-Cut.
-    
-    Questo script coordina l'intero flusso di lavoro:
-    1. Definizione del problema (Grafo)
-    2. Formulazione quantistica (Hamiltoniane)
-    3. Inizializzazione dei parametri
-    4. Ottimizzazione classica (Addestramento del circuito quantistico)
-    5. Campionamento dei risultati e visualizzazione
+    Script principale interattivo per la dimostrazione di QAOA Max-Cut.
     """
-    # Inizializza la console Rich per una UI da terminale stilizzata
     console = Console()
-    console.rule("[bold blue]Dimostrazione QAOA Max-Cut[/bold blue]")
+    console.rule("[bold blue]QAOA Max-Cut: Selezione Interattiva[/bold blue]")
 
     # ==========================================
-    # 1. Definizione del problema geometrico (Grafo)
+    # 1. Selezione del Grafo
     # ==========================================
-    graph = create_cycle_graph()
+    console.print("\n[bold yellow]Scegli il tipo di grafo da analizzare:[/bold yellow]")
+    console.print("1. Ciclo (Cycle Graph)")
+    console.print("2. Completo (Complete Graph)")
+    console.print("3. Casuale (Random Erdos-Renyi)")
+    console.print("4. Petersen (10 nodi, 15 archi)")
+    
+    scelta = Prompt.ask("Inserisci il numero della tua scelta", choices=["1", "2", "3", "4"], default="1")
+    
+    if scelta == "1":
+        n = IntPrompt.ask("Inserisci il numero di nodi", default=4)
+        graph = utils.create_cycle_graph(n)
+        tipo = f"Ciclo con {n} nodi"
+    elif scelta == "2":
+        n = IntPrompt.ask("Inserisci il numero di nodi", default=4)
+        graph = utils.create_complete_graph(n)
+        tipo = f"Completo con {n} nodi"
+    elif scelta == "3":
+        n = IntPrompt.ask("Inserisci il numero di nodi", default=5)
+        graph = utils.create_random_graph(n)
+        tipo = f"Casuale con {n} nodi"
+    else:
+        graph = utils.create_petersen_graph()
+        tipo = "Grafo di Petersen"
+
     n_wires = len(graph.nodes)
-
-    graph_info = f"Nodi: {list(graph.nodes())}\nArchi: {list(graph.edges())}\nQubit Totali: {n_wires}"
-    console.print(Panel(graph_info, title="[bold green]Definizione del Grafo[/bold green]", expand=False))
+    graph_info = f"Tipo: {tipo}\nNodi: {list(graph.nodes())}\nArchi: {len(graph.edges())}\nQubit Totali: {n_wires}"
+    console.print(Panel(graph_info, title="[bold green]Configurazione Grafo[/bold green]", expand=False))
 
     # ==========================================
-    # 2. Costruzione degli Operatori Quantistici
+    # 2. Costruzione degli Operatori
     # ==========================================
-    # Mappiamo il problema del grafo classico in Hamiltoniane quantistiche.
     cost_h, mixer_h = build_maxcut_hamiltonians(graph)
-
-    # ==========================================
-    # 3. Inizializzazione del Circuito Quantistico
-    # ==========================================
-    # Crea il circuito che andremo a ottimizzare. Restituisce il valore di aspettativa dell'Hamiltoniana di Costo.
     circuit = create_qaoa_circuit(graph, cost_h, mixer_h)
 
     # ==========================================
-    # 4. Impostazione dei Parametri QAOA Iniziali
+    # 3. Inizializzazione Parametri
     # ==========================================
-    p = 2  # La profondità del circuito QAOA (numero di layer). p più alto = più espressivo, ma più difficile da addestrare.
-    
-    # Inizializza gli angoli gamma (costo) e beta (mixer) casualmente tra 0 e pi.
-    # Usiamo il wrapper numpy di PennyLane per consentire la differenziazione automatica.
+    p = IntPrompt.ask("Scegli il numero di layer QAOA (p)", default=2)
     np.random.seed(42)
-    gammas = np.random.uniform(0, np.pi, p, requires_grad=True)
-    betas = np.random.uniform(0, np.pi, p, requires_grad=True)
-    params = np.array([gammas, betas], requires_grad=True)
-
-    console.print(f"[cyan]Parametri inizializzati per p={p} layer.[/cyan]\n")
+    params = np.array([np.random.uniform(0, np.pi, p) for _ in range(2)], requires_grad=True)
 
     # ==========================================
-    # 5. Ciclo di Ottimizzazione Classica
+    # 4. Ottimizzazione
     # ==========================================
-    # Usiamo l'ottimizzatore Adagrad per aggiornare iterativamente i parametri e minimizzare il costo.
     opt = qml.AdagradOptimizer(stepsize=0.5)
     steps = 40
     cost_history = []
 
-    # Visualizza una barra di progresso durante l'addestramento
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -79,43 +79,24 @@ def main() -> None:
         console=console
     ) as progress:
         
-        task = progress.add_task("[magenta]Ottimizzazione del Circuito QAOA...", total=steps)
-        
+        task = progress.add_task("[magenta]Ottimizzazione in corso...", total=steps)
         for i in range(steps):
-            # Esegue un passo di gradiente per aggiornare gamma e beta
             params = opt.step(circuit, params)
-            
-            # Valuta la nuova funzione di costo (valore di aspettativa)
             current_cost = circuit(params)
             cost_history.append(current_cost)
-            
-            # Aggiorna visivamente la barra di progresso nel terminale
-            progress.update(task, advance=1, description=f"[magenta]Ottimizzazione...[/magenta] (Costo: {current_cost:.4f})")
-
-    console.print("\n[bold green]✔ Ottimizzazione Completata![/bold green]")
+            progress.update(task, advance=1, description=f"[magenta]Costo: {current_cost:.4f}[/magenta]")
 
     # ==========================================
-    # 6. Campionamento del Circuito Ottimizzato
+    # 5. Risultati e Visualizzazione
     # ==========================================
-    # Una volta ottenuti i parametri ottimali, eseguiamo una versione diversa del circuito 
-    # che misura le probabilità effettive degli stati di base.
     sampling_circuit = create_sampling_circuit(graph, cost_h, mixer_h)
     probs = sampling_circuit(params)
-    
-    # ==========================================
-    # 7. Estrazione dei Risultati
-    # ==========================================
-    # La migliore soluzione è la stringa di bit corrispondente all'indice con la probabilità più alta
     best_idx = np.argmax(probs)
     best_bitstring = format(best_idx, f'0{n_wires}b')
 
-    result_info = f"Stringa di bit ottimale: [bold yellow]{best_bitstring}[/bold yellow]\nProbabilità: {probs[best_idx]:.4f}\nCosto Finale: {cost_history[-1]:.4f}"
+    result_info = f"Stringa Ottimale: [bold yellow]{best_bitstring}[/bold yellow]\nProbabilità: {probs[best_idx]:.4f}"
     console.print(Panel(result_info, title="[bold green]Risultati[/bold green]", expand=False))
 
-    # ==========================================
-    # 8. Dashboard di Visualizzazione
-    # ==========================================
-    console.print("[dim]Avvio della dashboard di visualizzazione... Chiudi la finestra per uscire.[/dim]")
     plot_dashboard(graph, probs, best_bitstring, cost_history, n_wires)
 
 

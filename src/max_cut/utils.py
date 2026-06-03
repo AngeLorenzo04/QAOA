@@ -1,21 +1,17 @@
 import networkx as nx
 
+def create_cycle_graph(n_nodes: int = 4) -> nx.Graph:
+    """Crea un grafo a ciclo."""
+    return nx.cycle_graph(n_nodes)
 
-def create_cycle_graph() -> nx.Graph:
-    """
-    Crea un semplice grafo a ciclo di 4 nodi (un quadrato) per la demo di Max-Cut.
-    
-    Nel problema Max-Cut, l'obiettivo è partizionare questi nodi in due 
-    set distinti tali che il numero di archi che collegano i due set sia massimizzato.
-    Per un ciclo di 4 nodi, il taglio ottimale comporta il taglio di tutti i 4 archi.
+def create_complete_graph(n_nodes: int = 4) -> nx.Graph:
+    """Crea un grafo completo."""
+    return nx.complete_graph(n_nodes)
 
-    Returns:
-        nx.Graph: Un oggetto grafo NetworkX che rappresenta la geometria del problema.
-    """
-    # Crea un grafo e aggiunge archi definendo un ciclo chiuso: 0-1-2-3-0
-    return nx.Graph([
-        (0, 1),
-        (1, 2),
-        (2, 3),
-        (3, 0),
-    ])
+def create_random_graph(n_nodes: int = 5, probability: float = 0.5) -> nx.Graph:
+    """Crea un grafo casuale di Erdos-Renyi."""
+    return nx.gnp_random_graph(n_nodes, probability, seed=42)
+
+def create_petersen_graph() -> nx.Graph:
+    """Crea il grafo di Petersen (10 nodi, 15 archi)."""
+    return nx.petersen_graph()
