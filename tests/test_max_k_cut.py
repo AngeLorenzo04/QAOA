@@ -5,7 +5,7 @@ from pennylane import numpy as np
 
 from max_k_cut.components import build_max_k_cut_hamiltonians
 from max_k_cut.circuit import create_max_k_cut_circuit
-from max_k_cut.utils import create_complete_graph
+from common.graphs import create_complete_graph
 
 def test_max_k_cut_hamiltonian_construction():
     """Testa la costruzione dell'Hamiltoniana Max-k-Cut con termini di penalità."""

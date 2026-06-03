@@ -7,10 +7,10 @@ from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, BarColumn,
 from rich.prompt import Prompt, IntPrompt
 
 # Importazioni dai moduli locali
-from max_k_cut import utils
+from common import graphs
+from common.plotting import plot_qaoa_dashboard
 from max_k_cut.components import build_max_k_cut_hamiltonians
 from max_k_cut.circuit import create_max_k_cut_circuit, create_max_k_cut_sampling_circuit
-from max_k_cut.plotting import plot_k_cut_dashboard
 
 def decode_bitstring(bitstring, n, k):
     """Converte una stringa di bit in un dizionario di colori."""
@@ -18,9 +18,11 @@ def decode_bitstring(bitstring, n, k):
     for i in range(n):
         node_bits = bitstring[i*k : (i+1)*k]
         try:
+            # Trova l'indice del bit '1' (one-hot encoding)
             color = np.where(np.array(list(node_bits)) == '1')[0][0]
             colors[i] = color
         except IndexError:
+            # Se nessun bit è 1 o ci sono più bit a 1, il nodo non ha un colore valido
             colors[i] = -1 
     return colors
 
@@ -44,16 +46,16 @@ def main():
     
     if scelta == "1":
         n = IntPrompt.ask("Numero di nodi", default=3)
-        graph = utils.create_cycle_graph(n)
+        graph = graphs.create_cycle_graph(n)
     elif scelta == "2":
         n = IntPrompt.ask("Numero di nodi", default=3)
-        graph = utils.create_complete_graph(n)
+        graph = graphs.create_complete_graph(n)
     elif scelta == "3":
         n = IntPrompt.ask("Numero di nodi", default=4)
-        graph = utils.create_random_graph(n)
+        graph = graphs.create_random_graph(n)
     else:
         n = IntPrompt.ask("Numero di nodi", default=4)
-        graph = utils.create_star_graph(n)
+        graph = graphs.create_star_graph(n)
 
     n_nodes = len(graph.nodes)
     n_qubits = n_nodes * k
@@ -112,7 +114,8 @@ def main():
         result_info += f"Nodo {node} -> Colore {color}\n"
     
     console.print(Panel(result_info, title="[bold green]Risultati[/bold green]", expand=False))
-    plot_k_cut_dashboard(graph, k, probs, best_bitstring, node_colors, cost_history)
+    plot_qaoa_dashboard(graph, k, probs, best_bitstring, node_colors=node_colors, cost_history=cost_history)
+
 
 if __name__ == "__main__":
     main()

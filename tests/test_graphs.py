@@ -1,12 +1,10 @@
 import pytest
 import networkx as nx
-from max_cut.utils import create_cycle_graph
-from max_k_cut.utils import create_complete_graph
+from common.graphs import create_cycle_graph, create_complete_graph
 
 def test_cycle_graph_properties():
     """Verifica le proprietà del grafo a ciclo."""
-    n = 5
-    graph = create_cycle_graph() # Default is 4
+    graph = create_cycle_graph(4)
     assert len(graph.nodes) == 4
     assert len(graph.edges) == 4
     

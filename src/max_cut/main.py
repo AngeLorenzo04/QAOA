@@ -6,10 +6,10 @@ from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, BarColumn,
 from rich.prompt import Prompt, IntPrompt
 
 # Importazioni dai moduli locali
-from max_cut import utils
-from max_cut.plotting import plot_dashboard
+from common import graphs
+from common.plotting import plot_qaoa_dashboard
 from max_cut.components import build_maxcut_hamiltonians
-from max_cut.circuit import create_qaoa_circuit, create_sampling_circuit
+from max_cut.circuit import create_maxcut_circuit, create_maxcut_sampling_circuit
 
 
 def main() -> None:
@@ -32,18 +32,18 @@ def main() -> None:
     
     if scelta == "1":
         n = IntPrompt.ask("Inserisci il numero di nodi", default=4)
-        graph = utils.create_cycle_graph(n)
+        graph = graphs.create_cycle_graph(n)
         tipo = f"Ciclo con {n} nodi"
     elif scelta == "2":
         n = IntPrompt.ask("Inserisci il numero di nodi", default=4)
-        graph = utils.create_complete_graph(n)
+        graph = graphs.create_complete_graph(n)
         tipo = f"Completo con {n} nodi"
     elif scelta == "3":
         n = IntPrompt.ask("Inserisci il numero di nodi", default=5)
-        graph = utils.create_random_graph(n)
+        graph = graphs.create_random_graph(n)
         tipo = f"Casuale con {n} nodi"
     else:
-        graph = utils.create_petersen_graph()
+        graph = graphs.create_petersen_graph()
         tipo = "Grafo di Petersen"
 
     n_wires = len(graph.nodes)
@@ -54,7 +54,7 @@ def main() -> None:
     # 2. Costruzione degli Operatori
     # ==========================================
     cost_h, mixer_h = build_maxcut_hamiltonians(graph)
-    circuit = create_qaoa_circuit(graph, cost_h, mixer_h)
+    circuit = create_maxcut_circuit(graph, cost_h, mixer_h)
 
     # ==========================================
     # 3. Inizializzazione Parametri
@@ -89,7 +89,7 @@ def main() -> None:
     # ==========================================
     # 5. Risultati e Visualizzazione
     # ==========================================
-    sampling_circuit = create_sampling_circuit(graph, cost_h, mixer_h)
+    sampling_circuit = create_maxcut_sampling_circuit(graph, cost_h, mixer_h)
     probs = sampling_circuit(params)
     best_idx = np.argmax(probs)
     best_bitstring = format(best_idx, f'0{n_wires}b')
@@ -97,7 +97,8 @@ def main() -> None:
     result_info = f"Stringa Ottimale: [bold yellow]{best_bitstring}[/bold yellow]\nProbabilità: {probs[best_idx]:.4f}"
     console.print(Panel(result_info, title="[bold green]Risultati[/bold green]", expand=False))
 
-    plot_dashboard(graph, probs, best_bitstring, cost_history, n_wires)
+    plot_qaoa_dashboard(graph, 2, probs, best_bitstring, cost_history=cost_history)
+
 
 
 if __name__ == "__main__":
