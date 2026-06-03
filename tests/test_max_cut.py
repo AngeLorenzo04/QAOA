@@ -15,7 +15,9 @@ def test_max_cut_hamiltonian_construction():
     assert isinstance(cost_h, qml.Hamiltonian)
     assert isinstance(mixer_h, qml.Hamiltonian)
     # Per Max-Cut su 2 nodi, l'Hamiltoniana di costo ha termini Z
-    assert "PauliZ" in str(cost_h)
+    # PennyLane >= 0.36 usa "Z(wire)" invece di "PauliZ" nella repr
+    cost_str = str(cost_h)
+    assert "PauliZ" in cost_str or "Z(" in cost_str
 
 def test_max_cut_circuit_execution():
     """Testa se il circuito QAOA può essere eseguito senza errori."""
