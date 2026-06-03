@@ -39,15 +39,9 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
     ax2 = axes[1]
     ax2.set_title("2. Measurement Probabilities", fontsize=16)
     
-    # Show top 10 for readability if n_qubits is large
-    if 2**n_qubits > 16:
-        top_indices = np.argsort(probs)[-10:][::-1]
-        display_probs = probs[top_indices]
-        display_labels = [format(i, f'0{n_qubits}b') for i in top_indices]
-        ax2.set_title("2. Measurement Probabilities (Top 10)", fontsize=16)
-    else:
-        display_probs = probs
-        display_labels = [format(i, f'0{n_qubits}b') for i in range(2**n_qubits)]
+    display_probs = probs
+    display_labels = [format(i, f'0{n_qubits}b') for i in range(2**n_qubits)]
+
     
     colors = ['tab:blue' if label == best_bitstring else 'lightgray' for label in display_labels]
     ax2.bar(display_labels, display_probs, color=colors)
