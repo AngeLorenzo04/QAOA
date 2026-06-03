@@ -99,6 +99,20 @@ def main() -> None:
 
     plot_qaoa_dashboard(graph, 2, probs, best_bitstring, cost_history=cost_history)
 
+    # ==========================================
+    # 6. Ispezione Manuale delle Soluzioni
+    # ==========================================
+    while True:
+        cont = Prompt.ask("\nVuoi visualizzare un'altra soluzione specifica? (inserisci bitstring o 'no')", default="no")
+        if cont.lower() == 'no':
+            break
+        
+        if len(cont) != n_wires or not set(cont).issubset({'0', '1'}):
+            console.print(f"[bold red]Errore: Inserisci una stringa di {n_wires} bit validi (0/1).[/bold red]")
+            continue
+        
+        plot_qaoa_dashboard(graph, 2, probs, cont, title=f"Visualizzazione Soluzione Manuale: {cont}")
+
 
 
 if __name__ == "__main__":

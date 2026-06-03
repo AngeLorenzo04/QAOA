@@ -116,6 +116,22 @@ def main():
     console.print(Panel(result_info, title="[bold green]Risultati[/bold green]", expand=False))
     plot_qaoa_dashboard(graph, k, probs, best_bitstring, node_colors=node_colors, cost_history=cost_history)
 
+    # ==========================================
+    # 5. Ispezione Manuale delle Soluzioni
+    # ==========================================
+    while True:
+        cont = Prompt.ask("\nVuoi visualizzare un'altra soluzione specifica? (inserisci bitstring o 'no')", default="no")
+        if cont.lower() == 'no':
+            break
+        
+        if len(cont) != n_qubits or not set(cont).issubset({'0', '1'}):
+            console.print(f"[bold red]Errore: Inserisci una stringa di {n_qubits} bit validi (0/1).[/bold red]")
+            continue
+        
+        custom_node_colors = decode_bitstring(cont, n_nodes, k)
+        plot_qaoa_dashboard(graph, k, probs, cont, node_colors=custom_node_colors, 
+                            title=f"Visualizzazione Soluzione Manuale: {cont}")
+
 
 if __name__ == "__main__":
     main()
