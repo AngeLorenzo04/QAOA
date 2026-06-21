@@ -7,7 +7,7 @@ from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, BarColumn,
 from rich.prompt import Prompt, IntPrompt
 
 # Importazioni dai moduli locali
-from common import graphs
+from common.graphs import *
 from common.plotting import plot_qaoa_dashboard
 from max_k_cut.components import build_max_k_cut_hamiltonians
 from max_k_cut.circuit import create_max_k_cut_circuit, create_max_k_cut_sampling_circuit

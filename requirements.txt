@@ -1,0 +1,5 @@
+pennylane
+networkx
+matplotlib
+rich
+numpy

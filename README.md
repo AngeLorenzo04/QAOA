@@ -72,3 +72,52 @@ Al termine di ogni esecuzione, verrà generata una **Dashboard di Analisi** cont
 
 ---
 *Progetto sviluppato nell'ambito della tesi di laurea in Informatica.*
+
+## 🗺️ Mappa del Codice e Flusso Logico
+
+### Grafico delle Dipendenze Modulari
+
+Questo grafico illustra le dipendenze interne tra i vari moduli del progetto. Le frecce indicano che un modulo importa o utilizza funzionalità da un altro.
+
+```mermaid
+graph TD
+    subgraph Max-k-Cut
+        mkc_main["src/max_k_cut/main.py"] --> mkc_circuit("src/max_k_cut/circuit.py")
+        mkc_main --> mkc_components("src/max_k_cut/components.py")
+        mkc_circuit --> common_qaoa("src/common/qaoa.py")
+    end
+
+    subgraph Max-Cut
+        mc_main["src/max_cut/main.py"] --> mc_circuit("src/max_cut/circuit.py")
+        mc_main --> mc_components("src/max_cut/components.py")
+        mc_circuit --> common_qaoa
+    end
+
+    subgraph Common
+        common_qaoa
+        common_graphs("src/common/graphs.py")
+        common_plotting("src/common/plotting.py")
+    end
+
+    mkc_main --> common_graphs
+    mkc_main --> common_plotting
+
+    mc_main --> common_graphs
+    mc_main --> common_plotting
+```
+
+### Flusso Logico dell'Applicazione
+
+Questo diagramma rappresenta il flusso di esecuzione tipico degli script `main.py` per Max-Cut e Max-k-Cut, dopo il refactoring che ha snellito la logica.
+
+```mermaid
+flowchart TD
+    start("Start (main.py)")
+    start --> getUserInput("1. Get User Input (Graph & Params)")
+    getUserInput --> setupQAOA("2. Setup QAOA Components (Hamiltonians, Circuits)")
+    setupQAOA --> optimizeQAOA("3. Optimize QAOA Parameters")
+    optimizeQAOA --> displayResults("4. Display Results (Optimal Bitstring, Plotting)")
+    displayResults --> manualInspection("5. Manual Solution Inspection (Loop)")
+    manualInspection --> end("End")
+```
+

@@ -12,16 +12,11 @@ from max_cut.components import build_maxcut_hamiltonians
 from max_cut.circuit import create_maxcut_circuit, create_maxcut_sampling_circuit
 
 
-def main() -> None:
+def get_user_graph_input(console):
     """
-    Script principale interattivo per la dimostrazione di QAOA Max-Cut.
+    Gestisce l'input dell'utente per la selezione del grafo.
+    Restituisce il grafo scelto e il numero di qubit (n_wires).
     """
-    console = Console()
-    console.rule("[bold blue]QAOA Max-Cut: Selezione Interattiva[/bold blue]")
-
-    # ==========================================
-    # 1. Selezione del Grafo
-    # ==========================================
     console.print("\n[bold yellow]Scegli il tipo di grafo da analizzare:[/bold yellow]")
     console.print("1. Ciclo (Cycle Graph)")
     console.print("2. Completo (Complete Graph)")
@@ -49,25 +44,26 @@ def main() -> None:
     n_wires = len(graph.nodes)
     graph_info = f"Tipo: {tipo}\nNodi: {list(graph.nodes())}\nArchi: {len(graph.edges())}\nQubit Totali: {n_wires}"
     console.print(Panel(graph_info, title="[bold green]Configurazione Grafo[/bold green]", expand=False))
+    return graph, n_wires
 
-    # ==========================================
-    # 2. Costruzione degli Operatori
-    # ==========================================
+def setup_qaoa_operators(graph):
+    """
+    Costruisce gli operatori Hamiltoniani e il circuito QAOA.
+    Restituisce cost_h, mixer_h, circuit.
+    """
     cost_h, mixer_h = build_maxcut_hamiltonians(graph)
     circuit = create_maxcut_circuit(graph, cost_h, mixer_h)
+    return cost_h, mixer_h, circuit
 
-    # ==========================================
-    # 3. Inizializzazione Parametri
-    # ==========================================
-    p = IntPrompt.ask("Scegli il numero di layer QAOA (p)", default=2)
+def optimize_qaoa_parameters(console, circuit, p_layers, steps):
+    """
+    Inizializza e ottimizza i parametri QAOA.
+    Restituisce i parametri ottimizzati e la cronologia dei costi.
+    """
     np.random.seed(42)
-    params = np.array([np.random.uniform(0, np.pi, p) for _ in range(2)], requires_grad=True)
-
-    # ==========================================
-    # 4. Ottimizzazione
-    # ==========================================
+    params = np.array([np.random.uniform(0, np.pi, p_layers) for _ in range(2)], requires_grad=True)
+    
     opt = qml.AdagradOptimizer(stepsize=0.5)
-    steps = 40
     cost_history = []
 
     with Progress(
@@ -85,11 +81,12 @@ def main() -> None:
             current_cost = circuit(params)
             cost_history.append(current_cost)
             progress.update(task, advance=1, description=f"[magenta]Costo: {current_cost:.4f}[/magenta]")
+    return params, cost_history
 
-    # ==========================================
-    # 5. Risultati e Visualizzazione
-    # ==========================================
-    sampling_circuit = create_maxcut_sampling_circuit(graph, cost_h, mixer_h)
+def display_qaoa_results(console, graph, sampling_circuit, params, n_wires, cost_history):
+    """
+    Calcola e visualizza i risultati QAOA, inclusi il bitstring ottimale e il dashboard.
+    """
     probs = sampling_circuit(params)
     best_idx = np.argmax(probs)
     best_bitstring = format(best_idx, f'0{n_wires}b')
@@ -99,9 +96,11 @@ def main() -> None:
 
     plot_qaoa_dashboard(graph, 2, probs, best_bitstring, cost_history=cost_history)
 
-    # ==========================================
-    # 6. Ispezione Manuale delle Soluzioni
-    # ==========================================
+def manual_solution_inspection_maxcut(console, graph, sampling_circuit, params, n_wires):
+    """
+    Permette all'utente di ispezionare manualmente le soluzioni inserendo un bitstring.
+    """
+    probs = sampling_circuit(params) # Recalculate probs to avoid passing it around if not strictly necessary
     while True:
         cont = Prompt.ask("\nVuoi visualizzare un'altra soluzione specifica? (inserisci bitstring o 'no')", default="no")
         if cont.lower() == 'no':
@@ -112,6 +111,34 @@ def main() -> None:
             continue
         
         plot_qaoa_dashboard(graph, 2, probs, cont, title=f"Visualizzazione Soluzione Manuale: {cont}")
+
+
+def main() -> None:
+    """
+    Script principale interattivo per la dimostrazione di QAOA Max-Cut.
+    """
+    console = Console()
+    console.rule("[bold blue]QAOA Max-Cut: Selezione Interattiva[/bold blue]")
+
+    # 1. Selezione del Grafo
+    graph, n_wires = get_user_graph_input(console)
+
+    # 2. Costruzione degli Operatori
+    cost_h, mixer_h, circuit = setup_qaoa_operators(graph)
+
+    # 3. Inizializzazione Parametri
+    p_layers = IntPrompt.ask("Scegli il numero di layer QAOA (p)", default=2)
+    steps = 40
+    params, cost_history = optimize_qaoa_parameters(console, circuit, p_layers, steps)
+
+    # 4. Risultati e Visualizzazione
+    sampling_circuit = create_maxcut_sampling_circuit(graph, cost_h, mixer_h)
+    display_qaoa_results(console, graph, sampling_circuit, params, n_wires, cost_history)
+
+    # 5. Ispezione Manuale delle Soluzioni
+    manual_solution_inspection_maxcut(console, graph, sampling_circuit, params, n_wires)
+
+
 
 
 
