@@ -26,11 +26,14 @@ def decode_bitstring(bitstring, n, k):
             colors[i] = -1 
     return colors
 
-def get_user_input(console):
-    """
-    Gestisce l'input dell'utente per il numero di colori (k) e la selezione del grafo.
-    Restituisce k, graph, n_nodes, n_qubits.
-    """
+def main():
+    """Script principale interattivo per QAOA Max-k-Cut."""
+    console = Console()
+    console.rule("[bold magenta]QAOA Max-k-Cut: Selezione Interattiva[/bold magenta]")
+
+    # ==========================================
+    # 1. Configurazione k e Grafo
+    # ==========================================
     k = IntPrompt.ask("Scegli il numero di colori (k)", default=3)
     
     console.print("\n[bold yellow]Scegli il tipo di grafo:[/bold yellow]")
@@ -62,28 +65,24 @@ def get_user_input(console):
 
     graph_info = f"Nodi: {n_nodes}\nColori (k): {k}\nQubit Totali (n*k): {n_qubits}"
     console.print(Panel(graph_info, title="[bold green]Configurazione Problema[/bold green]", expand=False))
-    return k, graph, n_nodes, n_qubits
 
-def setup_qaoa_components(graph, k):
-    """
-    Costruisce le Hamiltoniane e i circuiti QAOA.
-    Restituisce cost_h, mixer_h, circuit, sampling_circuit.
-    """
+    # ==========================================
+    # 2. Hamiltoniane e Circuiti
+    # ==========================================
     penalty_weight = 2.0
     cost_h, mixer_h = build_max_k_cut_hamiltonians(graph, k, penalty_weight=penalty_weight)
     circuit = create_max_k_cut_circuit(graph, k, cost_h, mixer_h)
     sampling_circuit = create_max_k_cut_sampling_circuit(graph, k, cost_h, mixer_h)
-    return cost_h, mixer_h, circuit, sampling_circuit
 
-def optimize_qaoa(console, circuit, p, steps):
-    """
-    Esegue l'ottimizzazione QAOA.
-    Restituisce i parametri ottimizzati e la cronologia dei costi.
-    """
+    # ==========================================
+    # 3. Ottimizzazione
+    # ==========================================
+    p = IntPrompt.ask("Numero di layer QAOA (p)", default=2)
     np.random.seed(42)
     params = np.array([np.random.uniform(0.01, 0.1, p) for _ in range(2)], requires_grad=True)
     
     opt = qml.AdamOptimizer(stepsize=0.05)
+    steps = 100
     cost_history = []
 
     with Progress(
@@ -101,13 +100,10 @@ def optimize_qaoa(console, circuit, p, steps):
             current_cost = circuit(params)
             cost_history.append(current_cost)
             progress.update(task, advance=1, description=f"[cyan]Costo: {current_cost:.4f}[/cyan]")
-    return params, cost_history
 
-def display_results(console, sampling_circuit, params, n_qubits, n_nodes, k, graph, cost_history):
-    """
-    Calcola e visualizza i risultati QAOA, inclusi i bitstring ottimali e il dashboard di plotting.
-    Restituisce best_bitstring, node_colors.
-    """
+    # ==========================================
+    # 4. Risultati e Plotting
+    # ==========================================
     probs = sampling_circuit(params)
     best_idx = np.argmax(probs)
     best_bitstring = format(best_idx, f'0{n_qubits}b')
@@ -119,12 +115,10 @@ def display_results(console, sampling_circuit, params, n_qubits, n_nodes, k, gra
     
     console.print(Panel(result_info, title="[bold green]Risultati[/bold green]", expand=False))
     plot_qaoa_dashboard(graph, k, probs, best_bitstring, node_colors=node_colors, cost_history=cost_history)
-    return best_bitstring, node_colors
 
-def manual_solution_inspection(console, n_qubits, n_nodes, k, graph, probs):
-    """
-    Permette all'utente di ispezionare manualmente le soluzioni inserendo un bitstring.
-    """
+    # ==========================================
+    # 5. Ispezione Manuale delle Soluzioni
+    # ==========================================
     while True:
         cont = Prompt.ask("\nVuoi visualizzare un'altra soluzione specifica? (inserisci bitstring o 'no')", default="no")
         if cont.lower() == 'no':
@@ -138,29 +132,6 @@ def manual_solution_inspection(console, n_qubits, n_nodes, k, graph, probs):
         plot_qaoa_dashboard(graph, k, probs, cont, node_colors=custom_node_colors, 
                             title=f"Visualizzazione Soluzione Manuale: {cont}")
 
-def main():
-    """Script principale interattivo per QAOA Max-k-Cut."""
-    console = Console()
-    console.rule("[bold magenta]QAOA Max-k-Cut: Selezione Interattiva[/bold magenta]")
-
-    # 1. Configurazione k e Grafo
-    k, graph, n_nodes, n_qubits = get_user_input(console)
-
-    # 2. Hamiltoniane e Circuiti
-    cost_h, mixer_h, circuit, sampling_circuit = setup_qaoa_components(graph, k)
-
-    # 3. Ottimizzazione
-    p = IntPrompt.ask("Numero di layer QAOA (p)", default=2)
-    steps = 100
-    params, cost_history = optimize_qaoa(console, circuit, p, steps)
-
-    # 4. Risultati e Plotting
-    best_bitstring, node_colors = display_results(console, sampling_circuit, params, n_qubits, n_nodes, k, graph, cost_history)
-
-    # 5. Ispezione Manuale delle Soluzioni
-    manual_solution_inspection(console, n_qubits, n_nodes, k, graph, sampling_circuit(params))
-
 
 if __name__ == "__main__":
     main()
-
