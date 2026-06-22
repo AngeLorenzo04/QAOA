@@ -1,9 +1,7 @@
 import networkx as nx
 from qiskit.circuit import QuantumCircuit
-from qiskit.primitives import Sampler, Estimator
-from qiskit.opflow import PauliSumOp
-from typing import Dict, Any, List, Tuple
-import numpy as np
+from qiskit.primitives import StatevectorSampler, StatevectorEstimator
+from typing import Any
 
 from src.qaoa.ansatz import get_qaoa_ansatz, get_cost_hamiltonian
 from src.qaoa.optimizer import qaoa_optimizer, calculate_maxcut_value # Import calculate_maxcut_value for final evaluation
@@ -21,14 +19,14 @@ class QAOARunner:
         self.num_qubits = graph.number_of_nodes()
 
         # Initialize Qiskit primitives
-        self.sampler = Sampler()
-        self.estimator = Estimator()
+        self.sampler = StatevectorSampler()
+        self.estimator = StatevectorEstimator()
 
         # Build QAOA components
         self.ansatz_circuit = get_qaoa_ansatz(self.graph, self.p_value)
         self.cost_hamiltonian = get_cost_hamiltonian(self.graph)
 
-    def run(self, max_optimization_iterations: int = 100, shots: int = 1024) -> Dict[str, Any]:
+    def run(self, max_optimization_iterations: int = 100, shots: int = 1024) -> dict[str, Any]:
         """
         Runs the QAOA optimization and simulation for the configured graph and parameters.
 

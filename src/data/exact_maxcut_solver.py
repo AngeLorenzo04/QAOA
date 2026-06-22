@@ -136,18 +136,35 @@ def find_exact_maxcut_ilp(graph: nx.Graph) -> Dict[str, Any]:
         }
 
     # Check solver status
-    if prob.status != pulp.LpStatusOptimal:
-        print(f"Warning: ILP solver did not find an optimal solution. Status: {pulp.LpStatus[prob.status]}")
+    solver_status = prob.status
+    if solver_status != pulp.LpStatusOptimal:
+        print(f"Warning: ILP solver did not find an optimal solution. Status: {pulp.LpStatus[solver_status]} for graph with {num_nodes} nodes.")
         return {
             'max_cut_value': -1,
             'max_cut_partitions': [],
             'num_nodes': num_nodes,
-            'solver_status': pulp.LpStatus[prob.status]
+            'solver_status': pulp.LpStatus[solver_status]
         }
 
     # Extract the solution
     max_cut_value = pulp.value(prob.objective)
-    max_cut_partition = [int(pulp.value(x[node])) for node in sorted(graph.nodes())] # Ensure order by node index
+    
+    # Debugging: Check for None values before conversion
+    debug_max_cut_partition = []
+    for node in sorted(graph.nodes()):
+        node_value = pulp.value(x[node])
+        if node_value is None:
+            print(f"Error: pulp.value(x[{node}]) returned None. Solver status: {pulp.LpStatus[solver_status]}")
+            # If a variable is None, the solution is not valid.
+            return {
+                'max_cut_value': -1,
+                'max_cut_partitions': [],
+                'num_nodes': num_nodes,
+                'solver_status': f"optimal_status_but_none_variable_{pulp.LpStatus[solver_status]}"
+            }
+        debug_max_cut_partition.append(int(node_value))
+    
+    max_cut_partition = debug_max_cut_partition
 
     return {
         'max_cut_value': int(max_cut_value),

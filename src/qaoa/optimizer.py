@@ -1,9 +1,8 @@
 import networkx as nx
-from qiskit.primitives import Sampler
-from qiskit.quantum_info import Statevector
+from qiskit.primitives import StatevectorSampler
+from qiskit.quantum_info import Statevector, SparsePauliOp
 from qiskit.result import QuasiDistribution
 from qiskit.circuit import QuantumCircuit, ParameterVector
-from qiskit.opflow import PauliSumOp
 from scipy.optimize import minimize
 from typing import Dict, Any, List, Tuple, Callable
 import numpy as np
@@ -27,9 +26,9 @@ def calculate_maxcut_value(graph: nx.Graph, bitstring: str) -> int:
 
 def get_objective_function(
     ansatz_circuit: QuantumCircuit,
-    cost_hamiltonian: PauliSumOp,
+    cost_hamiltonian: SparsePauliOp,
     graph: nx.Graph,
-    sampler: Sampler
+    sampler: StatevectorSampler
 ) -> Callable[[np.ndarray], float]:
     """
     Returns the objective function to be minimized by the classical optimizer.
@@ -118,11 +117,11 @@ def get_objective_function(
 def qaoa_optimizer(
     ansatz_circuit: QuantumCircuit,
     graph: nx.Graph,
-    cost_hamiltonian: PauliSumOp,
+    cost_hamiltonian: SparsePauliOp,
     initial_params: np.ndarray,
     optimizer_method: str = 'COBYLA',
     max_iterations: int = 100,
-    sampler: Sampler = None
+    sampler: StatevectorSampler = None
 ) -> Dict[str, Any]:
     """
     Performs classical optimization to find optimal QAOA parameters.
@@ -144,7 +143,7 @@ def qaoa_optimizer(
                         - 'history': A dictionary containing the optimization history.
     """
     if sampler is None:
-        sampler = Sampler() # Use default sampler if not provided
+        sampler = StatevectorSampler() # Use default sampler if not provided
 
     objective_function, history = get_objective_function(ansatz_circuit, cost_hamiltonian, graph, sampler)
 
@@ -184,7 +183,7 @@ if __name__ == '__main__':
     initial_params = np.random.rand(2 * p_value) * 2 * np.pi # gamma and beta between 0 and 2pi
 
     # Instantiate Qiskit Sampler
-    sampler = Sampler()
+    sampler = StatevectorSampler()
 
     print(f"Starting QAOA optimization for N={num_qubits}, p={p_value}...")
     optimization_results = qaoa_optimizer(

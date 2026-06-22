@@ -1,9 +1,8 @@
 import networkx as nx
 from qiskit.circuit import QuantumCircuit, ParameterVector, Parameter
-from qiskit.quantum_info import SparsePauliOp
-from qiskit.opflow import I, X, Z, PauliSumOp
+from qiskit.quantum_info import SparsePauliOp, PauliList
 
-def get_cost_hamiltonian(graph: nx.Graph) -> PauliSumOp:
+def get_cost_hamiltonian(graph: nx.Graph) -> SparsePauliOp:
     """
     Constructs the Cost Hamiltonian (H_C) for the MaxCut problem.
     H_C = sum_{<i,j> in E} (I - Z_i Z_j) / 2
@@ -15,42 +14,29 @@ def get_cost_hamiltonian(graph: nx.Graph) -> PauliSumOp:
         PauliSumOp: The Cost Hamiltonian.
     """
     num_qubits = graph.number_of_nodes()
-    terms = []
+    
+    h_c = SparsePauliOp.from_list([("I"*num_qubits, 0)]) # Initialize with an empty operator
     
     # Iterate over edges to build the cost Hamiltonian
     for i, j in graph.edges():
-        # Term for Z_i Z_j
+        # Term (I - Z_i Z_j) / 2
+        
+        # Build Z_i Z_j term
         zi_zj_label = ['I'] * num_qubits
         zi_zj_label[i] = 'Z'
         zi_zj_label[j] = 'Z'
-        terms.append( (SparsePauliOp.from_label("".join(zi_zj_label)), -0.5) )
-        
-        # Term for I
-        # Add (1/2)I for each edge, effectively sum(I)/2 for all edges
-        terms.append( (SparsePauliOp.from_label('I'*num_qubits), 0.5) ) # I * 0.5
+        term_zi_zj = SparsePauliOp.from_label("".join(zi_zj_label))
 
-    # Combine all terms into a PauliSumOp
-    # The SparsePauliOp.from_list method expects a list of (label, coeff) tuples
-    # and combines terms with the same label. So we need to manage the scalar I terms carefully.
-    
-    # A cleaner way using PauliSumOp and adding terms
-    h_c = 0
-    for i, j in graph.edges():
-        # Term (I - Z_i Z_j) / 2
-        # (I @ I ... @ Z_i @ I ... @ Z_j @ I ...)
-        op_zi = [I] * num_qubits
-        op_zi[i] = Z
-        op_zj = [I] * num_qubits
-        op_zj[j] = Z
-        
-        term_zi_zj = PauliSumOp(SparsePauliOp("".join(zi_zj_label), coeffs=[1])) # Convert to PauliSumOp
+        # Build Identity term for this edge
+        identity_term = SparsePauliOp.from_label('I' * num_qubits)
 
-        h_c += (PauliSumOp(I^num_qubits) - term_zi_zj) * 0.5
+        # Add to Hamiltonian: (I - Z_i Z_j) * 0.5
+        h_c += (identity_term - term_zi_zj) * 0.5
 
     return h_c
 
 
-def get_mixer_hamiltonian(graph: nx.Graph) -> PauliSumOp:
+def get_mixer_hamiltonian(graph: nx.Graph) -> SparsePauliOp:
     """
     Constructs the Mixer Hamiltonian (H_M) for the MaxCut problem (standard mixer).
     H_M = sum_{i in V} X_i
@@ -62,11 +48,11 @@ def get_mixer_hamiltonian(graph: nx.Graph) -> PauliSumOp:
         PauliSumOp: The Mixer Hamiltonian.
     """
     num_qubits = graph.number_of_nodes()
-    h_m = 0
+    h_m = SparsePauliOp.from_list([("I"*num_qubits, 0)]) # Initialize with an empty operator
     for i in range(num_qubits):
         xi_label = ['I'] * num_qubits
         xi_label[i] = 'X'
-        h_m += PauliSumOp(SparsePauliOp.from_label("".join(xi_label)))
+        h_m += SparsePauliOp.from_label("".join(xi_label))
     return h_m
 
 
