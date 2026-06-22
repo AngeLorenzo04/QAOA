@@ -4,5 +4,6 @@ matplotlib
 rich
 numpy
 pulp
-qiskit
+qiskit-terra # Added for qiskit.opflow
 scipy
+tqdm

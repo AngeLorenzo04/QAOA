@@ -1,6 +1,7 @@
 from typing import List, Tuple, Dict, Any, Set
 import networkx as nx
 import pulp
+from tqdm import tqdm # Import tqdm for progress indication
 
 def calculate_cut_value(graph: nx.Graph, partition: List[int]) -> int:
     """
@@ -125,7 +126,9 @@ def find_exact_maxcut_ilp(graph: nx.Graph) -> Dict[str, Any]:
     # Solve the problem
     # Using the default solver (usually CBC, which comes with PuLP)
     try:
-        prob.solve(pulp.PULP_CBC_CMD(msg=0)) # msg=0 suppresses solver output
+        with tqdm(total=1, unit="solve", desc="Solving ILP for Max-Cut") as pbar:
+            prob.solve(pulp.PULP_CBC_CMD(msg=0)) # msg=0 suppresses solver output
+            pbar.update(1) # Mark as complete
     except Exception as e:
         print(f"Error during ILP solving: {e}")
         return {

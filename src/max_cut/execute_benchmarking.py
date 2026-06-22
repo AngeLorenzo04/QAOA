@@ -5,7 +5,6 @@ from typing import Dict, Any, List # Added List to imports
 
 from src.data.graph_dataset_generator import generate_and_save_graphs, load_graphs
 from src.data.exact_maxcut_solver import find_exact_maxcut, find_exact_maxcut_ilp
-from src.qaoa.ansatz import get_qaoa_ansatz
 from src.qaoa.qaoa_runner import QAOARunner # Import QAOARunner # Import the ansatz function
 
 # --- Configuration for Graph Generation ---
