@@ -1,16 +1,15 @@
 import pennylane as qml
 from pennylane import numpy as np
-import networkx as nx
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, BarColumn, TextColumn
 from rich.prompt import Prompt, IntPrompt
 
 # Importazioni dai moduli locali
-from common.graphs import *
+from common import graphs
 from common.plotting import plot_qaoa_dashboard
-from max_k_cut.components import build_max_k_cut_hamiltonians
 from max_k_cut.circuit import create_max_k_cut_circuit, create_max_k_cut_sampling_circuit
+from max_k_cut.components import build_max_k_cut_hamiltonians
 
 def decode_bitstring(bitstring, n, k):
     """Converte una stringa di bit in un dizionario di colori."""
@@ -46,7 +45,7 @@ def main():
     
     if scelta == "1":
         n = IntPrompt.ask("Numero di nodi", default=3)
-        graph = graphs.create_cycle_graph(n)
+        graph = graphs.create_complete_graph(n)
     elif scelta == "2":
         n = IntPrompt.ask("Numero di nodi", default=3)
         graph = graphs.create_complete_graph(n)
