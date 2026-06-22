@@ -1,4 +1,5 @@
 from typing import List, Tuple, Dict, Any, Set
+import networkx as nx
 import pulp
 
 def calculate_cut_value(graph: nx.Graph, partition: List[int]) -> int:

@@ -4,3 +4,5 @@ matplotlib
 rich
 numpy
 pulp
+qiskit
+scipy
