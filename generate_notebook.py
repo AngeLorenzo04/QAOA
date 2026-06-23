@@ -26,11 +26,29 @@ Questo notebook illustra passo passo l'infrastruttura sviluppata per calcolare e
 """)
 
 add_code("""
+# [SETUP GOOGLE COLAB] Esegui questa cella SOLO se sei su Google Colab per scaricare il progetto
+import os
+
+# Clona la repository se non sei già dentro la cartella QAOA
+if not os.path.exists('src'):
+    !git clone https://github.com/AngeLorenzo04/QAOA.git
+    %cd QAOA
+
+# Installa le librerie necessarie
+!pip install -r requirements.txt
+!pip install pylatexenc
+""")
+
+add_code("""
 # Setup dell'ambiente e importazione moduli
 import sys
 import os
+import warnings
 import networkx as nx
 import matplotlib.pyplot as plt
+
+# Ignoriamo i FutureWarning (come quelli relativi a qiskit-terra) per una presentazione più pulita
+warnings.filterwarnings('ignore', category=FutureWarning)
 
 # Assicuriamoci che la cartella src sia nel path
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), 'src')))
@@ -45,15 +63,14 @@ add_md("""
 ## 1. Definizione del Problema (Max-Cut)
 Il problema del Max-Cut consiste nel dividere i nodi di un grafo in due insiemi in modo da massimizzare il numero di archi "tagliati" (cioè che collegano un nodo del primo insieme a uno del secondo).
 
-Creiamo un grafo di esempio a 5 nodi e calcoliamo matematicamente la soluzione perfetta (Ground Truth) usando un approccio brute-force / ILP.
+Creiamo un grafo di esempio a 4 nodi (un ciclo pari, che è matematicamente perfetto per il Max-Cut) e calcoliamo la soluzione perfetta (Ground Truth) usando un approccio ILP.
 
 > **Reference al codice:** La risoluzione esatta matematica è gestita dal modulo `src/data/exact_maxcut_solver.py`, che usa la libreria `pulp` per modellare il problema in ILP.
 """)
 
 add_code("""
-# Creazione di un grafo (ciclo con un arco extra)
-G = nx.cycle_graph(5)
-G.add_edge(0, 2)
+# Creazione di un grafo Bipartito perfetto (ciclo a 4 nodi)
+G = nx.cycle_graph(4)
 
 # Risoluzione esatta matematica
 exact_result = find_exact_maxcut(G)
