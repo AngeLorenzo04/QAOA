@@ -15,37 +15,14 @@ def get_cost_hamiltonian(graph: nx.Graph) -> PauliSumOp:
         PauliSumOp: The Cost Hamiltonian.
     """
     num_qubits = graph.number_of_nodes()
-    terms = []
     
-    # Iterate over edges to build the cost Hamiltonian
+    h_c = 0
     for i, j in graph.edges():
-        # Term for Z_i Z_j
         zi_zj_label = ['I'] * num_qubits
         zi_zj_label[i] = 'Z'
         zi_zj_label[j] = 'Z'
-        terms.append( (SparsePauliOp.from_label("".join(zi_zj_label)), -0.5) )
-        
-        # Term for I
-        # Add (1/2)I for each edge, effectively sum(I)/2 for all edges
-        terms.append( (SparsePauliOp.from_label('I'*num_qubits), 0.5) ) # I * 0.5
-
-    # Combine all terms into a PauliSumOp
-    # The SparsePauliOp.from_list method expects a list of (label, coeff) tuples
-    # and combines terms with the same label. So we need to manage the scalar I terms carefully.
-    
-    # A cleaner way using PauliSumOp and adding terms
-    h_c = 0
-    for i, j in graph.edges():
-        # Term (I - Z_i Z_j) / 2
-        # (I @ I ... @ Z_i @ I ... @ Z_j @ I ...)
-        op_zi = [I] * num_qubits
-        op_zi[i] = Z
-        op_zj = [I] * num_qubits
-        op_zj[j] = Z
-        
-        term_zi_zj = PauliSumOp(SparsePauliOp("".join(zi_zj_label), coeffs=[1])) # Convert to PauliSumOp
-
-        h_c += (PauliSumOp(I^num_qubits) - term_zi_zj) * 0.5
+        term_zi_zj = PauliSumOp(SparsePauliOp("".join(zi_zj_label)))
+        h_c += (PauliSumOp(SparsePauliOp('I' * num_qubits)) - term_zi_zj) * 0.5
 
     return h_c
 
@@ -66,7 +43,7 @@ def get_mixer_hamiltonian(graph: nx.Graph) -> PauliSumOp:
     for i in range(num_qubits):
         xi_label = ['I'] * num_qubits
         xi_label[i] = 'X'
-        h_m += PauliSumOp(SparsePauliOp.from_label("".join(xi_label)))
+        h_m += PauliSumOp(SparsePauliOp("".join(xi_label)))
     return h_m
 
 

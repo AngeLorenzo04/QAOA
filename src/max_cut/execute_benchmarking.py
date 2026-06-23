@@ -111,13 +111,17 @@ def run_qaoa_benchmarking():
             if os.path.exists(ilp_result_filepath):
                 with open(ilp_result_filepath, 'r') as f:
                     ilp_data = json.load(f)
-                    exact_max_cut_value = ilp_data['exact_max_cut']['max_cut_value']
+                    exact_max_cut_value = ilp_data['exact_maxcut']['max_cut_value']
             else:
                 print(f"Warning: Exact MaxCut for graph N={n_nodes}, ID={graph_info['id']} not found. Skipping QAOA.")
                 continue
 
         print(f"\nRunning QAOA for graph N={n_nodes}, D={graph_info['density_edges']:.2f}, ID={graph_info['id']} "
               f"(Exact MaxCut: {exact_max_cut_value})")
+
+        if n_nodes > 20:
+            print(f"Warning: Exact statevector simulation for {n_nodes} qubits is too memory-intensive for the default Qiskit reference Sampler (requires ~{2**(n_nodes)*16/1024**3:.1f} GB RAM). Skipping QAOA for this graph.")
+            continue
 
         for p_val in P_VALUES:
             for mixer_type in MIXERS:
@@ -183,5 +187,5 @@ def run_qaoa_benchmarking():
 
 
 if __name__ == "__main__":
-    execute_benchmarking_setup()
+    #execute_benchmarking_setup()
     run_qaoa_benchmarking() # Call the new QAOA benchmarking function

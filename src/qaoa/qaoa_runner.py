@@ -59,10 +59,11 @@ class QAOARunner:
         optimization_history = optimization_results['history'] # Extract history
         
         # 3. Bind optimal parameters to the ansatz circuit
-        optimal_circuit = self.ansatz_circuit.bind_parameters(optimal_params)
+        optimal_circuit = self.ansatz_circuit.assign_parameters(dict(zip(self.ansatz_circuit.parameters, optimal_params)))
 
         # 4. Run the optimal circuit on a sampler to get measurement outcomes
-        job = self.sampler.run(optimal_circuit, shots=shots)
+        measured_optimal_circuit = optimal_circuit.measure_all(inplace=False)
+        job = self.sampler.run(measured_optimal_circuit, shots=shots)
         quasi_distribution = job.result().quasi_dists[0]
 
         # 5. Calculate QAOA MaxCut value (expected value) and best measured cut
@@ -73,7 +74,8 @@ class QAOARunner:
         # Find the most probable bitstring(s) and their cut values
         sorted_outcomes = sorted(quasi_distribution.items(), key=lambda item: item[1], reverse=True)
         
-        for bitstring, prob in sorted_outcomes:
+        for state_int, prob in sorted_outcomes:
+            bitstring = format(state_int, f'0{self.num_qubits}b')
             cut_val = calculate_maxcut_value(self.graph, bitstring)
             qaoa_expected_cut_value += prob * cut_val
             
@@ -91,7 +93,7 @@ class QAOARunner:
             'qaoa_expected_cut_value': qaoa_expected_cut_value,
             'best_measured_cut_value': best_measured_cut_value,
             'best_measured_bitstring': best_measured_bitstring,
-            'quasi_distribution': {k: float(v) for k, v in quasi_distribution.items()}, # Convert prob to float for JSON
+            'quasi_distribution': {format(k, f'0{self.num_qubits}b'): float(v) for k, v in quasi_distribution.items()}, # Convert keys to bitstrings and prob to float for JSON
             'metrics': {
                 'circuit_depth': circuit_depth,
                 'num_parameters': num_parameters,

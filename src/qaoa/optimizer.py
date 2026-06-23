@@ -58,7 +58,7 @@ def get_objective_function(
         beta_params = params[p:]
         
         # Bind parameters to the ansatz circuit
-        bound_circuit = ansatz_circuit.bind_parameters(dict(zip(ansatz_circuit.parameters, params)))
+        bound_circuit = ansatz_circuit.assign_parameters(dict(zip(ansatz_circuit.parameters, params)))
 
         # Calculate expectation value using the sampler
         # The sampler primitive directly calculates expectation values for SparsePauliOp
@@ -70,18 +70,17 @@ def get_objective_function(
         # This conversion might be implicit in future Qiskit versions or needs a specific method.
         # For now, let's assume it can be directly used, or we manually calculate from counts.
         
-        # Option 1: Direct expectation value via Sampler (preferred if supported directly by PauliSumOp)
-        job = sampler.run(bound_circuit, shots=1024) # Increased shots for better estimation
-        # Assuming sampler.run can handle PauliSumOp or it's implicitly converted
-        # For current Qiskit Primitives, we might need to convert PauliSumOp to Estimator's expectation value context.
-        # Let's adjust this to manually calculate expectation from quasi-distributions.
+        # Ensure the circuit has measurements before running the sampler
+        measured_circuit = bound_circuit.measure_all(inplace=False)
         
-        # Option 2: Calculate expectation from quasi-distributions (more general)
-        job = sampler.run(bound_circuit, shots=1024)
+        # Calculate expectation from quasi-distributions (more general)
+        job = sampler.run(measured_circuit, shots=1024)
         quasi_distribution: QuasiDistribution = job.result().quasi_dists[0]
 
         exp_val = 0.0
-        for bitstring, prob in quasi_distribution.items():
+        for state_int, prob in quasi_distribution.items():
+            # Convert integer state to bitstring
+            bitstring = format(state_int, f'0{num_qubits}b')
             # For MaxCut, the value is higher for better cuts.
             # The cost Hamiltonian in Qiskit is usually defined such that
             # its expectation value is proportional to the negative of the cut value (to minimize).
@@ -158,7 +157,7 @@ def qaoa_optimizer(
 
     optimal_params = result.x
     optimal_value = result.fun
-    num_iterations = result.nit
+    num_iterations = getattr(result, 'nit', getattr(result, 'nfev', 0))
 
     return {
         'optimal_params': optimal_params.tolist(),
@@ -205,13 +204,15 @@ if __name__ == '__main__':
     print(f"MaxCut Expectation Value: {-optimization_results['optimal_value']}")
 
     # After optimization, you can bind the optimal parameters and sample the circuit
-    optimal_circuit = ansatz_circuit.bind_parameters(optimization_results['optimal_params'])
-    job = sampler.run(optimal_circuit, shots=1024)
+    optimal_circuit = ansatz_circuit.assign_parameters(dict(zip(ansatz_circuit.parameters, optimization_results['optimal_params'])))
+    measured_optimal_circuit = optimal_circuit.measure_all(inplace=False)
+    job = sampler.run(measured_optimal_circuit, shots=1024)
     quasi_distribution = job.result().quasi_dists[0]
 
     print("\nTop 5 Measurement Outcomes:")
     sorted_outcomes = sorted(quasi_distribution.items(), key=lambda item: item[1], reverse=True)
-    for bitstring, prob in sorted_outcomes[:5]:
+    for state_int, prob in sorted_outcomes[:5]:
+        bitstring = format(state_int, f'0{num_qubits}b')
         cut_val = calculate_maxcut_value(G, bitstring)
         print(f"  Bitstring: {bitstring}, Probability: {prob:.4f}, Cut Value: {cut_val}")
 
