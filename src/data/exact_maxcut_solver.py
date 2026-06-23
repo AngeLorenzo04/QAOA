@@ -150,7 +150,7 @@ def find_exact_maxcut_ilp(graph: nx.Graph) -> Dict[str, Any]:
 
     # Extract the solution
     max_cut_value = pulp.value(prob.objective)
-    max_cut_partition = [int(pulp.value(x[node])) for node in sorted(graph.nodes())] # Ensure order by node index
+    max_cut_partition = [int(pulp.value(x[node])) if pulp.value(x[node]) is not None else 0 for node in sorted(graph.nodes())] # Ensure order by node index
 
     return {
         'max_cut_value': int(max_cut_value),

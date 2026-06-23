@@ -1,0 +1,50 @@
+{
+    "graph_metadata": {
+        "n_vertices": 32,
+        "density_edges": 0.25,
+        "seed": 878584,
+        "id": 0,
+        "graph_filepath": "data/generated_graphs/graph_n32_d0.25_id0_seed878584.gpickle"
+    },
+    "exact_maxcut": {
+        "max_cut_value": 96,
+        "max_cut_partitions": [
+            [
+                0,
+                1,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                1,
+                0,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                0,
+                1,
+                1,
+                1,
+                1,
+                0,
+                1,
+                1
+            ]
+        ],
+        "num_nodes": 32,
+        "solver_status": "Optimal"
+    }
+}
