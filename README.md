@@ -75,6 +75,13 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)
 python -m src.max_cut.execute_benchmarking
 ```
 
+### Visualizzazione dei Grafi di Benchmark (Nuovo)
+Consente all'utente di scegliere in modo interattivo quale grafo usato per il benchmark visualizzare, evidenziando opzionalmente il taglio massimo esatto (Max Cut) precalcolato (o calcolato tramite ILP).
+```bash
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+python visualize_benchmark_graph.py
+```
+
 ## 🧠 Descrizione Algoritmi
 
 ### Max-Cut

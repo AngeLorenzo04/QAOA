@@ -6,17 +6,17 @@ import collections
 
 def plot_graph_with_cut(
     graph: nx.Graph, 
-    partition: List[int], 
+    partition: Optional[List[int]] = None, 
     title: str = "Graph with Max Cut",
     filepath: Optional[str] = None
 ) -> None:
     """
-    Plots a graph, coloring nodes based on a given partition and highlighting cut edges.
+    Plots a graph, optionally coloring nodes based on a given partition and highlighting cut edges.
 
     Args:
         graph (nx.Graph): The input NetworkX graph.
-        partition (List[int]): A list where partition[i] = 0 or 1, indicating
-                                which set node i belongs to.
+        partition (Optional[List[int]]): A list where partition[i] = 0 or 1, indicating
+                                which set node i belongs to. If None, plots the graph normally.
         title (str): Title of the plot.
         filepath (Optional[str]): If provided, saves the plot to this path.
                                   Otherwise, displays the plot.
@@ -28,18 +28,24 @@ def plot_graph_with_cut(
     pos = nx.spring_layout(graph, seed=42) # For consistent layout
 
     # Color nodes based on partition
-    node_colors = ['skyblue' if partition[node] == 0 else 'salmon' for node in graph.nodes()]
+    if partition is not None:
+        node_colors = ['skyblue' if partition[node] == 0 else 'salmon' for node in graph.nodes()]
+    else:
+        node_colors = ['skyblue' for _ in graph.nodes()]
 
     # Determine cut edges
     cut_edges = []
     non_cut_edges = []
-    for u, v in graph.edges():
-        # Ensure nodes are in the partition list (important if graph nodes are not 0 to N-1)
-        # Assuming nodes are 0 to N-1 for simplicity, as per problem description
-        if partition[u] != partition[v]:
-            cut_edges.append((u, v))
-        else:
-            non_cut_edges.append((u, v))
+    if partition is not None:
+        for u, v in graph.edges():
+            # Ensure nodes are in the partition list (important if graph nodes are not 0 to N-1)
+            # Assuming nodes are 0 to N-1 for simplicity, as per problem description
+            if partition[u] != partition[v]:
+                cut_edges.append((u, v))
+            else:
+                non_cut_edges.append((u, v))
+    else:
+        non_cut_edges = list(graph.edges())
 
     plt.figure(figsize=(10, 8))
     
@@ -47,10 +53,11 @@ def plot_graph_with_cut(
     nx.draw_networkx_edges(graph, pos, edgelist=non_cut_edges, edge_color='lightgray', width=1)
     
     # Draw cut edges (thicker, black)
-    nx.draw_networkx_edges(graph, pos, edgelist=cut_edges, edge_color='black', width=2)
+    if cut_edges:
+        nx.draw_networkx_edges(graph, pos, edgelist=cut_edges, edge_color='black', width=2)
     
     # Draw nodes
-    nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_size=700)
+    nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_size=700, edgecolors='black')
     
     # Draw labels
     nx.draw_networkx_labels(graph, pos, font_size=10, font_color='black')
@@ -294,7 +301,223 @@ def plot_approximation_ratio_vs_params(
         print(f"Plot saved to {filepath}")
     else:
         plt.show()
-        plt.close()
+
+def plot_benchmark_graph(
+    graphs_dir: Optional[str] = None,
+    n_vertices: Optional[int] = None,
+    density: Optional[float] = None,
+    graph_id: Optional[int] = None,
+    seed: Optional[int] = None,
+    filename: Optional[str] = None,
+    filepath: Optional[str] = None,
+    interactive: bool = True
+) -> None:
+    """
+    Consente di selezionare e disegnare un grafo tra quelli generati per il benchmark.
+    Visualizza anche la partizione di Max Cut esatto se disponibile (in .gpickle o in .json ILP).
+    """
+    import os
+    import pickle
+    import json
+    import re
+    
+    # Tentiamo l'import di rich per una migliore interfaccia a riga di comando
+    try:
+        from rich.console import Console
+        from rich.prompt import Prompt
+        console = Console()
+        has_rich = True
+    except ImportError:
+        has_rich = False
+        console = None
+
+    def print_msg(msg: str, is_error: bool = False):
+        if has_rich:
+            style = "bold red" if is_error else "cyan"
+            console.print(f"[{style}]{msg}[/{style}]")
+        else:
+            print(msg)
+
+    def ask_choice(prompt_text: str, choices: List[str], default_val: str) -> str:
+        if has_rich:
+            return Prompt.ask(prompt_text, choices=choices, default=default_val)
+        else:
+            choice = input(f"{prompt_text} (Opzioni: {', '.join(choices)}) [{default_val}]: ").strip()
+            return choice if choice in choices else default_val
+
+    # 1. Ricerca della directory dei grafi
+    possible_dirs = ["data/generated_graphs", "QAOA/data/generated_graphs"]
+    if graphs_dir:
+        possible_dirs.insert(0, graphs_dir)
+        
+    selected_dir = None
+    for d in possible_dirs:
+        if os.path.isdir(d):
+            selected_dir = d
+            break
+            
+    if not selected_dir:
+        print_msg("Errore: Cartella dei grafi generati non trovata.", is_error=True)
+        print_msg("Assicurati di trovarti nella directory corretta del progetto o di specificare 'graphs_dir'.")
+        return
+
+    # 2. Lettura dei file .gpickle
+    files = [f for f in os.listdir(selected_dir) if f.endswith(".gpickle")]
+    if not files:
+        print_msg(f"Errore: Nessun file .gpickle trovato in '{selected_dir}'.", is_error=True)
+        return
+
+    # Estrarre i metadati dai nomi dei file
+    # Esempio: graph_n16_d0.10_id0_seed249876.gpickle
+    pattern = re.compile(r"graph_n(\d+)_d([\d\.]+)_id(\d+)_seed(\d+)\.gpickle")
+    
+    meta_list = []
+    for f in files:
+        match = pattern.match(f)
+        if match:
+            meta_list.append({
+                'filename': f,
+                'filepath': os.path.join(selected_dir, f),
+                'n_vertices': int(match.group(1)),
+                'density': float(match.group(2)),
+                'id': int(match.group(3)),
+                'seed': int(match.group(4))
+            })
+        else:
+            # Fallback provando a caricare il file
+            try:
+                filepath = os.path.join(selected_dir, f)
+                with open(filepath, 'rb') as pf:
+                    g = pickle.load(pf)
+                meta_list.append({
+                    'filename': f,
+                    'filepath': filepath,
+                    'n_vertices': g.graph.get('n_vertices', len(g.nodes())),
+                    'density': g.graph.get('density_edges', 0.0),
+                    'id': g.graph.get('id', 0),
+                    'seed': g.graph.get('seed', 0)
+                })
+            except Exception:
+                pass
+
+    if not meta_list:
+        print_msg("Errore: Nessun metadato valido trovato nei grafi.", is_error=True)
+        return
+
+    # 3. Filtraggio preliminare in base ai parametri passati alla funzione
+    filtered = meta_list
+    if filename:
+        filtered = [m for m in filtered if m['filename'] == filename]
+    else:
+        if n_vertices is not None:
+            filtered = [m for m in filtered if m['n_vertices'] == n_vertices]
+        if density is not None:
+            filtered = [m for m in filtered if abs(m['density'] - density) < 1e-6]
+        if graph_id is not None:
+            filtered = [m for m in filtered if m['id'] == graph_id]
+        if seed is not None:
+            filtered = [m for m in filtered if m['seed'] == seed]
+
+    # 4. Scelta interattiva
+    if interactive and len(filtered) != 1:
+        if has_rich:
+            console.rule("[bold magenta]Seleziona Grafo di Benchmark[/bold magenta]")
+        else:
+            print("\n=== Seleziona Grafo di Benchmark ===")
+
+        # Numero di nodi N
+        available_n = sorted(list(set(m['n_vertices'] for m in filtered)))
+        if len(available_n) > 1:
+            choices_n = [str(n) for n in available_n]
+            ans_n = ask_choice("Scegli il numero di nodi (N)", choices_n, choices_n[0])
+            filtered = [m for m in filtered if m['n_vertices'] == int(ans_n)]
+        elif len(available_n) == 1:
+            print_msg(f"Numero di nodi (N) impostato automaticamente a: {available_n[0]}")
+
+        # Densità D
+        available_d = sorted(list(set(m['density'] for m in filtered)))
+        if len(available_d) > 1:
+            choices_d = [f"{d:.2f}" for d in available_d]
+            ans_d = ask_choice("Scegli la densità degli archi (D)", choices_d, choices_d[0])
+            filtered = [m for m in filtered if abs(m['density'] - float(ans_d)) < 1e-6]
+        elif len(available_d) == 1:
+            print_msg(f"Densità archi (D) impostata automaticamente a: {available_d[0]:.2f}")
+
+        # ID e Seed del grafo
+        available_ids = sorted(list(set(m['id'] for m in filtered)))
+        if len(available_ids) > 1:
+            choices_id = [str(i) for i in available_ids]
+            ans_id = ask_choice("Scegli l'ID del grafo", choices_id, choices_id[0])
+            filtered = [m for m in filtered if m['id'] == int(ans_id)]
+        elif len(available_ids) == 1:
+            filtered = [m for m in filtered if m['id'] == available_ids[0]]
+
+    # 5. Caricamento del grafo finale
+    if not filtered:
+        print_msg("Nessun grafo trovato che corrisponde ai criteri inseriti.", is_error=True)
+        return
+
+    selected_meta = filtered[0]
+    graph_filepath = selected_meta['filepath']
+    print_msg(f"Caricamento del grafo: {selected_meta['filename']}...")
+
+    try:
+        with open(graph_filepath, 'rb') as pf:
+            graph = pickle.load(pf)
+    except Exception as e:
+        print_msg(f"Errore nel caricamento del file del grafo: {e}", is_error=True)
+        return
+
+    # 6. Lettura del taglio massimo esatto (Max Cut)
+    partitions = graph.graph.get('exact_max_cut_partitions', [])
+    max_cut_val = graph.graph.get('exact_max_cut_value', -1)
+
+    # Cerca nel file JSON ILP se non è presente nel gpickle o se il valore è -1
+    if not partitions or max_cut_val == -1:
+        results_dirs = ["data/benchmarking_results", "QAOA/data/benchmarking_results"]
+        ilp_filename = f"maxcut_ilp_n{selected_meta['n_vertices']}_d{selected_meta['density']:.2f}_id{selected_meta['id']}_seed{selected_meta['seed']}.json"
+        
+        ilp_filepath = None
+        for rd in results_dirs:
+            p = os.path.join(rd, ilp_filename)
+            if os.path.exists(p):
+                ilp_filepath = p
+                break
+
+        if ilp_filepath:
+            try:
+                with open(ilp_filepath, 'r') as jf:
+                    ilp_data = json.load(jf)
+                exact_data = ilp_data.get('exact_maxcut', {})
+                max_cut_val = exact_data.get('max_cut_value', -1)
+                partitions = exact_data.get('max_cut_partitions', [])
+                print_msg("Metadati Max Cut caricati dai risultati ILP (.json).")
+            except Exception as e:
+                print_msg(f"Avviso: Caricamento file ILP fallito: {e}")
+
+    # 7. Disegno del grafo
+    title = f"Grafo N={selected_meta['n_vertices']}, D={selected_meta['density']:.2f}, ID={selected_meta['id']} (Seed: {selected_meta['seed']})"
+    
+    if partitions and max_cut_val != -1:
+        print_msg(f"Valore esatto del Max Cut: {max_cut_val}")
+        # Se siamo in modalità interattiva, chiediamo all'utente, altrimenti mostriamo sempre il taglio
+        if interactive:
+            ans = ask_choice("Vuoi evidenziare il Max Cut nel grafo? [S/N]", ["S", "N", "s", "n"], "S")
+            show_cut = ans.upper() == "S"
+        else:
+            show_cut = True
+
+        if show_cut:
+            if len(partitions) > 1:
+                print_msg(f"Trovate {len(partitions)} partizioni equivalenti. Disegno della prima.")
+            partition = partitions[0]
+            title += f" - Max Cut Esatto: {max_cut_val}"
+            plot_graph_with_cut(graph, partition=partition, title=title, filepath=filepath)
+        else:
+            plot_graph_with_cut(graph, partition=None, title=title, filepath=filepath)
+    else:
+        print_msg("Nessuna partizione precalcolata trovata per questo grafo. Visualizzazione normale.")
+        plot_graph_with_cut(graph, partition=None, title=title, filepath=filepath)
 
 if __name__ == "__main__":
     # Example Usage:
