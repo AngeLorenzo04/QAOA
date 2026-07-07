@@ -1,4 +1,4 @@
-# Ispezione dei Grafi del Benchmark (`visualize_benchmark_graph.py`)
+# Ispezione dei Grafi del Benchmark (`scripts/visualize_benchmark_graph.py`)
 
 Questo file markdown descrive la logica di visualizzazione ed esplorazione interattiva dei grafi generati ed analizzati all'interno della suite di benchmark.
 

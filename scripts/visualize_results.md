@@ -1,4 +1,4 @@
-# Generazione dei Grafici di Benchmarking (`visualize_results.py`)
+# Generazione dei Grafici di Benchmarking (`scripts/visualize_results.py`)
 
 Questo file markdown spiega l'interpretazione statistica e il significato dei grafici prodotti dallo script di visualizzazione globale dei risultati dei benchmark di QAOA.
 

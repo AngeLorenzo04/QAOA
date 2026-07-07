@@ -41,7 +41,7 @@ $$U(H_M, \beta) = e^{-i \beta H_M} = \prod_{u \in V} e^{-i \beta X_u} = \prod_{u
 ---
 
 ## 3. L'Esecuzione dell'Algoritmo in Ogni Layer
-L'algoritmo prepara lo stato iniziale in una superposizione uniforme applicando porte di Hadamard ($H$) a tutti i qubit nello stato fondamental $|0\rangle^{\otimes N}$:
+L'algoritmo prepara lo stato iniziale in una superposizione uniforme applicando porte di Hadamard ($H$) a tutti i qubit nello stato fondamentale $|0\rangle^{\otimes N}$:
 
 $$|s\rangle = H^{\otimes N} |0\rangle^{\otimes N} = \frac{1}{\sqrt{2^N}} \sum_{x \in \{0,1\}^N} |x\rangle$$
 
@@ -76,7 +76,7 @@ $$E(\vec{\gamma}, \vec{\beta}) = \sum_{x} P(x; \vec{\gamma}, \vec{\beta}) \cdot 
 
 Poiché vogliamo massimizzare il taglio medio, definiamo la funzione obiettivo da minimizzare come:
 
-$$f(\vec{\gamma}, \vec{\beta}) = - E(\vec{\gamma}, \vec{\beta})$$
+$$f(\vec{\gamma}, \vec{\beta}) = - E(\vec{\gamma}, \vec{\beta}) = -\langle C \rangle$$
 
 ### La Discesa del Gradiente (Gradient Descent)
 L'ottimizzatore a discesa del gradiente calcola la derivata parziale (pendenza) della funzione obiettivo rispetto a ciascun angolo parametro per determinare in quale direzione i parametri devono muoversi per ridurre il costo.
@@ -98,12 +98,11 @@ Non potendo calcolare analiticamente le derivate sulla macchina quantistica, il 
 
 $$\frac{\partial f}{\partial \gamma} \approx \frac{f(\gamma + dx, \beta) - f(\gamma - dx, \beta)}{2 \cdot dx}$$
 
-Un valore di $dx$ sufficientemente grande (come $0.2$) protegge il calcolo del gradiente dal rumore statistico intrinseco dovuto al numero finito di campionamenti (shots) effettuati sul circuito.
+Un valore di $dx$ sufficientemente grande (like $0.2$) protegge il calcolo del gradiente dal rumore statistico intrinseco dovuto al numero finito di campionamenti (shots) effettuati sul circuito.
 Al termine di ogni aggiornamento, i parametri vengono mappati all'interno del loro intervallo periodico tramite operazione modulo:
 *   $\gamma \in [0, 2\pi]$ (periodicità di $H_C$)
 *   $\beta \in [0, \pi]$ (periodicità di $H_M$)
 
 ### Nota sulla Visualizzazione
-Nei grafici e nei report di analisi, per motivi di chiarezza e interpretabilità immediata, mostriamo direttamente il **valore atteso positivo del taglio $\langle C \rangle = E(\vec{\gamma}, \vec{\beta})$** anziché il costo negativo $f(\vec{\gamma}, \vec{\beta})$. 
-In questo modo, la discesa del gradiente del costo si traduce visivamente in una **salita del gradiente** (Gradient Ascent) del valore atteso del taglio lungo i picchi della mappa, che converge asintoticamente verso il taglio massimo teorico (pari a $4.0$).
-
+Nei grafici e nei report di analisi, per motivi di aderenza con la formulazione fisica dell'ottimizzazione energetica, mostriamo direttamente il **valore del costo $-\langle C \rangle = -E(\vec{\gamma}, \vec{\beta})$**. 
+In questo modo, la discesa del gradiente del costo si traduce visivamente in una **discesa verso le valli** della mappa 3D del costo, facilitando l'intuizione fisica della ricerca dello stato fondamentale a energia minima.

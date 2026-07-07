@@ -3,7 +3,7 @@ import sys
 import os
 
 # Aggiunge la cartella src al path di sistema per poter importare i moduli locali
-sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 from src.visualization.plotter import plot_benchmark_graph
 

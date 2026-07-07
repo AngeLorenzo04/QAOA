@@ -15,30 +15,46 @@ Il progetto è stato recentemente refactorizzato per migliorare la modularità e
 Il codice è stato esteso introducendo pipeline di **Benchmarking** e passando all'utilizzo di **Qiskit** per l'infrastruttura quantistica più scalabile:
 
 ```text
-src/
-├── common/            # Utility condivise usate dalle demo classiche
-│   ├── graphs.py      # Generatore di grafi (Ciclo, Completo, Casuale, Petersen, etc.)
-│   ├── plotting.py    # Dashboard 1x3 unificata per la visualizzazione grafica
-│   └── qaoa.py        # Factory base per i circuiti quantistici
-├── data/              # Gestione dataset e soluzioni matematiche esatte
-│   ├── exact_maxcut_solver.py    # Risolve il MaxCut in modo esatto: approccio Brute-Force (grafi piccoli) e ILP via PuLP (grafi grandi)
-│   └── graph_dataset_generator.py # Genera dataset di grafi randomizzati (N nodi, D densità), memorizzando i .gpickle e i relativi metadati
-├── max_cut/           # Modulo Max-Cut (2 partizioni)
-│   ├── circuit.py     # Definizione del QNode per Max-Cut
-│   ├── components.py  # Costruzione Hamiltoniane base (H_cost, H_mixer)
-│   ├── execute_benchmarking.py # Script centrale di QAOA Benchmarking: orchestra generazione, calcolo ILP esatto e run quantistico, esportando il summary finale in JSON
-│   └── main.py        # Demo interattiva classica per Max-Cut
-├── max_k_cut/         # Modulo Max-k-Cut (k partizioni)
-│   ├── circuit.py     # Definizione del QNode (n*k qubit, one-hot encoding)
-│   ├── components.py  # Hamiltoniane modificate con metodo di penalità
-│   └── main.py        # Demo interattiva classica per Max-k-Cut
-├── qaoa/              # Modulo avanzato di esecuzione QAOA basato su Qiskit Primitives
-│   ├── ansatz.py      # Crea il QAOA Ansatz parametrizzato alternando layer di Cost Hamiltonian e Mixer Hamiltonian
-│   ├── encoding.py    # Strategie per la rappresentazione e codifica quantistica
-│   ├── optimizer.py   # Implementa il ciclo ibrido di ottimizzazione: minimizza il valore atteso quantistico usando l'ottimizzatore classico COBYLA e Qiskit Sampler
-│   └── qaoa_runner.py # Esegue una singola configurazione QAOA unendo Ansatz, Ottimizzatore ed esecuzione su un grafo specifico
-└── visualization/     # Strumenti di visualizzazione avanzati
-    └── plotter.py     # Generazione di grafici statistici e plot comparativi per i risultati JSON estratti dal benchmarking
+QAOA/
+├── docs/                 # Documentazione teorica generale e analisi tesi
+│   ├── benchmark_analysis.md           # Analisi qualitativa dei risultati del benchmark
+│   └── qaoa_teoria_e_ottimizzazione.md # Guida al funzionamento di QAOA e Gradient Descent
+├── notebooks/            # Jupyter Notebooks di presentazione e didattica
+│   ├── Presentazione_QAOA.ipynb        # Notebook passo-passo per Google Colab o Jupyter
+│   └── Studio_Gradient_Descent.ipynb   # Notebook focalizzato sullo studio del Gradient Descent
+├── scripts/              # Script di utilità e visualizzazioni globali
+│   ├── generate_gd_notebook.py         # Generatore statico del notebook di studio del GD
+│   ├── generate_notebook.py            # Generatore statico del notebook di presentazione
+│   ├── test_pulp.py                    # Test di integrità del solutore classico ILP
+│   ├── test_sampler.py                 # Test di integrità del Sampler Qiskit
+│   ├── visualize_benchmark_graph.py    # Script per ispezionare singolarmente i grafi del dataset
+│   └── visualize_results.py            # Script per tracciare grafici statistici dal benchmark
+├── src/                  # Codice sorgente dell'infrastruttura QAOA
+│   ├── common/            # Utility condivise usate dalle demo classiche
+│   │   ├── graphs.py      # Generatore di grafi (Ciclo, Completo, Casuale, Petersen, etc.)
+│   │   ├── plotting.py    # Dashboard 1x3 unificata per la visualizzazione grafica
+│   │   └── qaoa.py        # Factory base per i circuiti quantistici
+│   ├── data/              # Gestione dataset e soluzioni matematiche esatte
+│   │   ├── exact_maxcut_solver.py    # Risolve il MaxCut in modo esatto via brute-force e ILP
+│   │   └── graph_dataset_generator.py # Genera dataset di grafi randomizzati (.gpickle)
+│   ├── max_cut/           # Modulo Max-Cut (2 partizioni)
+│   │   ├── circuit.py     # Definizione del QNode per Max-Cut
+│   │   ├── components.py  # Costruzione Hamiltoniane base (H_cost, H_mixer)
+│   │   ├── execute_benchmarking.py # Script centrale di QAOA Benchmarking
+│   │   └── main.py        # Demo interattiva classica per Max-Cut
+│   ├── max_k_cut/         # Modulo Max-k-Cut (k partizioni)
+│   │   ├── circuit.py     # Definizione del QNode (n*k qubit, one-hot encoding)
+│   │   ├── components.py  # Hamiltoniane modificate con metodo di penalità
+│   │   └── main.py        # Demo interattiva classica per Max-k-Cut
+│   ├── qaoa/              # Modulo avanzato di esecuzione QAOA basato su Qiskit Primitives
+│   │   ├── ansatz.py      # Crea il QAOA Ansatz parametrizzato
+│   │   ├── encoding.py    # Strategie per la rappresentazione e codifica quantistica
+│   │   ├── optimizer.py   # Ciclo di ottimizzazione classica (COBYLA/GD)
+│   │   └── qaoa_runner.py # Esegue una singola configurazione QAOA
+│   └── visualization/     # Strumenti di visualizzazione avanzati
+│       ├── plot_gradient_descent.py # Visualizza traiettoria GD 3D sul panorama del costo
+│       └── plotter.py     # Generazione di grafici statistici dai risultati JSON
+└── tests/                # Test di unità e di integrazione (pytest)
 ```
 
 ## 🛠️ Requisiti
@@ -86,17 +102,17 @@ Consente di esplorare graficamente e in modo interattivo la partizione esatta ca
 * **Comando**:
   ```bash
   export PYTHONPATH=$PYTHONPATH:$(pwd)
-  python visualize_benchmark_graph.py
+  python scripts/visualize_benchmark_graph.py
   ```
-* **Documentazione Grafica**: Vedere [visualize_benchmark_graph.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/visualize_benchmark_graph.md).
+* **Documentazione Grafica**: Vedere [scripts/visualize_benchmark_graph.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/scripts/visualize_benchmark_graph.md).
 
 ### 5. Analisi Grafica e Statistica del Benchmark
 Estrae i dati JSON generati dal benchmark e traccia l'andamento del rapporto di approssimazione (Approximation Ratio) al variare dei nodi, del parametro $p$ e della densità degli archi.
 * **Comando**:
   ```bash
-  python visualize_results.py
+  python scripts/visualize_results.py
   ```
-* **Documentazione Grafica**: Vedere [visualize_results.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/visualize_results.md).
+* **Documentazione Grafica**: Vedere [scripts/visualize_results.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/scripts/visualize_results.md).
 
 ### 6. Visualizzazione 3D Traiettoria Gradient Descent (GD)
 Calcola e renderizza in una finestra GUI 3D interattiva il panorama continuo di costo $-\langle C(\gamma, \beta) \rangle$ e mostra il percorso intrapreso dall'ottimizzatore personalizzato a discesa di gradiente.

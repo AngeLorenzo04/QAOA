@@ -25,7 +25,7 @@ La densità gioca un ruolo fondamentale per l'accuratezza del QAOA:
 - **Alta densità ($D = 50\%$ o $75\%$):** Registra valori perfetti o quasi perfetti ($100\%$ per $N=4$, $99.7\%$ per $N=8$, e $\sim 96\%$ per $N=16$). Un alto numero di connessioni aiuta la funzione di costo e i layer dell'ansatz a mescolare uniformemente le probabilità, riducendo l'impatto dei minimi locali.
 
 > [!TIP]
-> **Implicazione pratica:** Il QAOA, unito a un ottimizzatore standard, performa molto meglio su grafi strutturati e densi (che per l'approccio classico brute-force sarebbero invece più complessi da calcolare).
+> **Implicazione pratica:** Il QAOA, unito a un ottimizzatore classico, performa molto meglio su grafi strutturati e densi (che per l'approccio classico brute-force sarebbero invece più complessi da calcolare).
 
 ## 3. L'anomalia della Profondità del Circuito ($p$)
 La teoria del QAOA suggerisce che, per $p \to \infty$, l'Approximation Ratio tende a 1. Aumentare $p$ (i layer) dovrebbe migliorare progressivamente il risultato. Tuttavia, i nostri dati mostrano una tendenza diversa:

@@ -1,4 +1,5 @@
 import json
+import os
 
 cells = []
 
@@ -89,7 +90,7 @@ add_md("""
 Per risolvere il problema quantisticamente, mappiamo ogni nodo su un Qubit (Binary Encoding). 
 Costruiamo poi un **Ansatz parametrizzato**, che funge da *template* in cui le porte logiche non sono fisse, ma variano in base ad angoli liberi ($\gamma$ e $\beta$). L'Ansatz alterna due operatori per un numero di volte pari alla profondità $p$:
 
-1.  **Cost Hamiltonian ($H_C$)**: Modella esattamente la struttura del nostro grafo. Per ogni arco che collega due nodi $i$ e $j$, applichiamo una porta di interazione $R_{ZZ}$ (ovvero $Z_i Z_j$) guidata dall'angolo $\gamma$. Questa operazione agisce sulle fasi quantistiche per "premiare" gli stati in cui i qubit connessi si trovano in partizioni diverse.
+1.  **Cost Hamiltonian ($H_C$)**: Modella esattamente la struttura del nostro grafo. Per ogni arco che collega due nodi $i$ e $j$, applichiamo una porta di interazione $R_{ZZ}$ (ovvero $Z_i Z_j$) guidata dall'angolo $\gamma$. Questa operazione agisce sulle fases quantistiche per "premiare" gli stati in cui i qubit connessi si trovano in partizioni diverse.
     $$H_C = \sum_{(i,j) \in E} \\frac{I - Z_i Z_j}{2}$$
 2.  **Mixer Hamiltonian ($H_M$)**: Subito dopo, applichiamo il mixer, ovvero una rotazione singola $R_X$ su tutti i qubit, guidata dall'angolo $\beta$. Il mixer crea "interferenza quantistica": spinge il sistema a ruotare uscendo dallo stato attuale per esplorare nuove e inesplorate partizioni del grafo.
     $$H_M = \sum_{i \in V} X_i$$
@@ -187,7 +188,8 @@ notebook = {
     "nbformat_minor": 4
 }
 
-with open("Presentazione_QAOA.ipynb", "w", encoding="utf-8") as f:
+notebook_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "notebooks", "Presentazione_QAOA.ipynb"))
+with open(notebook_path, "w", encoding="utf-8") as f:
     json.dump(notebook, f, indent=1)
 
-print("Notebook creato con successo: Presentazione_QAOA.ipynb")
+print(f"Notebook creato con successo in: {notebook_path}")

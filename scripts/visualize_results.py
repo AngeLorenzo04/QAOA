@@ -3,7 +3,7 @@ import os
 import sys
 
 # Aggiunge src al path per importare plotter.py
-sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 from src.visualization.plotter import plot_approximation_ratio_vs_params, plot_optimizer_convergence, plot_probability_distribution
 
