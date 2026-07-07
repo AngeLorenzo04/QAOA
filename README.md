@@ -40,7 +40,6 @@ QAOA/
 │   ├── max_cut/           # Modulo Max-Cut (2 partizioni)
 │   │   ├── circuit.py     # Definizione del QNode per Max-Cut
 │   │   ├── components.py  # Costruzione Hamiltoniane base (H_cost, H_mixer)
-│   │   ├── execute_benchmarking.py # Script centrale di QAOA Benchmarking
 │   │   └── main.py        # Demo interattiva classica per Max-Cut
 │   ├── max_k_cut/         # Modulo Max-k-Cut (k partizioni)
 │   │   ├── circuit.py     # Definizione del QNode (n*k qubit, one-hot encoding)
@@ -50,7 +49,8 @@ QAOA/
 │   │   ├── ansatz.py      # Crea il QAOA Ansatz parametrizzato
 │   │   ├── encoding.py    # Strategie per la rappresentazione e codifica quantistica
 │   │   ├── optimizer.py   # Ciclo di ottimizzazione classica (COBYLA/GD)
-│   │   └── qaoa_runner.py # Esegue una singola configurazione QAOA
+│   │   ├── qaoa_runner.py # Esegue una singola configurazione QAOA
+│   │   └── execute_benchmarking.py # Script centrale di QAOA Benchmarking
 │   └── visualization/     # Strumenti di visualizzazione avanzati
 │       ├── plot_gradient_descent.py # Visualizza traiettoria GD 3D sul panorama del costo
 │       └── plotter.py     # Generazione di grafici statistici dai risultati JSON
@@ -93,9 +93,9 @@ Esegue un benchmark completo dell'algoritmo QAOA su un intero dataset di grafi r
 * **Comando**:
   ```bash
   export PYTHONPATH=$PYTHONPATH:$(pwd)
-  python -m src.max_cut.execute_benchmarking
+  python -m src.qaoa.execute_benchmarking
   ```
-* **Documentazione Matematica & Metriche**: Vedere [src/max_cut/execute_benchmarking.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/max_cut/execute_benchmarking.md).
+* **Documentazione Matematica & Metriche**: Vedere [src/qaoa/execute_benchmarking.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/qaoa/execute_benchmarking.md).
 
 ### 4. Ispezione Grafi del Benchmark
 Consente di esplorare graficamente e in modo interattivo la partizione esatta calcolata tramite ILP per un qualunque grafo salvato nel dataset di benchmark.

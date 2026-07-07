@@ -1,4 +1,4 @@
-# QAOA Benchmarking Pipeline (`src/max_cut/execute_benchmarking.py`)
+# QAOA Benchmarking Pipeline (`src/qaoa/execute_benchmarking.py`)
 
 Questo file markdown descrive i fondamenti teorici, il ruolo del solutore classico e la metrica di valutazione del framework di benchmarking di QAOA per Max-Cut.
 
