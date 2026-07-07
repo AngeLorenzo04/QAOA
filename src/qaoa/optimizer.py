@@ -154,8 +154,8 @@ def custom_gradient_descent(
     n = len(x)
     p = n // 2
     
-    # Wrap initial parameters (x[:p] is beta, x[p:] is gamma)
-    x[:p] = np.mod(x[:p], np.pi)
+    # Wrap initial parameters (x[:p] is beta, x[p:] is gamma) to [0, 2*pi]
+    x[:p] = np.mod(x[:p], 2 * np.pi)
     x[p:] = np.mod(x[p:], 2 * np.pi)
     
     trajectory_params = [x.copy().tolist()]
@@ -189,8 +189,8 @@ def custom_gradient_descent(
         # Update position
         x -= learning_rate * grad
         
-        # Keep parameters within periodic boundaries (x[:p] is beta, x[p:] is gamma)
-        x[:p] = np.mod(x[:p], np.pi)
+        # Keep parameters within periodic boundaries [0, 2*pi]
+        x[:p] = np.mod(x[:p], 2 * np.pi)
         x[p:] = np.mod(x[p:], 2 * np.pi)
         
         trajectory_params.append(x.copy().tolist())

@@ -13,7 +13,7 @@ def compute_cut_landscape(graph, ansatz_circuit, sampler, steps=22):
     Using steps=22 (484 evaluations) to ensure maximum fluidity during 3D rotation.
     """
     gamma_vals = np.linspace(0, 2 * np.pi, steps)
-    beta_vals = np.linspace(0, np.pi, steps)
+    beta_vals = np.linspace(0, 2 * np.pi, steps)
     gamma_grid, beta_grid = np.meshgrid(gamma_vals, beta_vals)
     cut_grid = np.zeros_like(gamma_grid)
     
@@ -66,8 +66,8 @@ def plot_gradient_descent_trajectory():
     # Extract clean trajectory params
     trajectory_params = np.array(results['metrics']['trajectory_params'])
     
-    # Wrap parameters to their periodic domains for robust plotting (columns: 0 is beta, 1 is gamma)
-    trajectory_params[:, 0] = np.mod(trajectory_params[:, 0], np.pi)
+    # Wrap parameters to their periodic domains for robust plotting (columns: 0 is beta, 1 is gamma) to [0, 2*pi]
+    trajectory_params[:, 0] = np.mod(trajectory_params[:, 0], 2 * np.pi)
     trajectory_params[:, 1] = np.mod(trajectory_params[:, 1], 2 * np.pi)
     
     # Calculate expected cut values along the clean trajectory
@@ -182,15 +182,62 @@ def plot_gradient_descent_trajectory():
     ax2 = fig2.add_subplot(111, projection='3d')
     
     # Draw 3D surface (antialiased=False and stride=1 makes it extremely fluid to rotate)
-    surf = ax2.plot_surface(gamma_grid, beta_grid, cut_grid, cmap='plasma', alpha=0.85, 
+    surf = ax2.plot_surface(gamma_grid, beta_grid, -cut_grid, cmap='plasma', alpha=0.85, 
                             edgecolor='none', rstride=1, cstride=1, antialiased=False, zorder=1)
     colorbar = fig2.colorbar(surf, ax=ax2, pad=0.1, shrink=0.6)
-    colorbar.set_label('Valore Atteso del Taglio $\\langle C \\rangle$ (Expected Cut)', fontsize=11)
+    colorbar.set_label('Valore del Costo $-\\langle C \\rangle$', fontsize=11)
     
-    # Plot the 3D trajectory line (with a small z-offset to float nicely above the surface)
+    # 3D spline interpolation to make the trajectory follow the landscape perfectly
+    from scipy.interpolate import RectBivariateSpline
+    gamma_vals_1d = np.linspace(0, 2 * np.pi, len(gamma_grid))
+    beta_vals_1d = np.linspace(0, 2 * np.pi, len(beta_grid))
+    spline = RectBivariateSpline(beta_vals_1d, gamma_vals_1d, -cut_grid)
+    
+    # Calculate Z coordinates for the step dots on the surface
+    trajectory_cuts_surface = np.array([spline(betas[k], gammas[k])[0, 0] for k in range(len(gammas))])
+    
     z_offset = 0.04
-    trajectory_cuts_offset = np.array(trajectory_cuts) + z_offset
-    ax2.plot(gammas, betas, trajectory_cuts_offset, color='#00ffff', linestyle='-', linewidth=2.5, label='Percorso Ottimizzazione', zorder=10)
+    trajectory_cuts_offset = trajectory_cuts_surface + z_offset
+    
+    # Generate a finely interpolated path to make the 3D line follow the surface curvature
+    fine_gammas = []
+    fine_betas = []
+    
+    for i in range(len(gammas) - 1):
+        g_start, g_end = gammas[i], gammas[i+1]
+        b_start, b_end = betas[i], betas[i+1]
+        
+        # Interpolate 30 points per segment
+        g_segment = np.linspace(g_start, g_end, 30)
+        b_segment = np.linspace(b_start, b_end, 30)
+        
+        # If a boundary crossing is detected, insert a NaN to split the line (avoids drawing lines wrapping across the plot)
+        if abs(g_end - g_start) > np.pi or abs(b_end - b_start) > np.pi:
+            fine_gammas.extend([g_start, np.nan, g_end])
+            fine_betas.extend([b_start, np.nan, b_end])
+        else:
+            if i > 0:
+                fine_gammas.extend(g_segment[1:])
+                fine_betas.extend(b_segment[1:])
+            else:
+                fine_gammas.extend(g_segment)
+                fine_betas.extend(b_segment)
+                
+    fine_gammas = np.array(fine_gammas)
+    fine_betas = np.array(fine_betas)
+    
+    fine_cuts_offset = []
+    for idx in range(len(fine_gammas)):
+        g_val = fine_gammas[idx]
+        b_val = fine_betas[idx]
+        if np.isnan(g_val) or np.isnan(b_val):
+            fine_cuts_offset.append(np.nan)
+        else:
+            fine_cuts_offset.append(spline(b_val, g_val)[0, 0] + z_offset)
+    fine_cuts_offset = np.array(fine_cuts_offset)
+    
+    # Plot the 3D trajectory line using the finely interpolated surface path
+    ax2.plot(fine_gammas, fine_betas, fine_cuts_offset, color='#00ffff', linestyle='-', linewidth=2.5, label='Percorso Ottimizzazione', zorder=10)
     
     # Colored step dots (smaller, cleaner)
     step_colors = plt.cm.summer(np.linspace(0.0, 1.0, len(gammas)))
@@ -200,17 +247,32 @@ def plot_gradient_descent_trajectory():
     ax2.scatter(gammas[0], betas[0], trajectory_cuts_offset[0], color='#2ecc71', marker='o', s=100, edgecolors='black', label='Start (Casuale)', depthshade=False, zorder=12)
     ax2.scatter(gammas[-1], betas[-1], trajectory_cuts_offset[-1], color='#e74c3c', marker='*', s=200, edgecolors='black', label='End (Ottimo)', depthshade=False, zorder=12)
     
-    # Label ONLY Start and End points cleanly without cluttering boxes
-    ax2.text(gammas[0] + 0.1, betas[0] + 0.1, trajectory_cuts_offset[0] + 0.15, "Inizio", color='white', fontsize=10, weight='bold', zorder=13)
-    ax2.text(gammas[-1] - 0.1, betas[-1] - 0.1, trajectory_cuts_offset[-1] + 0.25, f"Ottimo\n(C={trajectory_cuts[-1]:.2f})\n$\\gamma$={gammas[-1]:.3f}\n$\\beta$={betas[-1]:.3f}", color='white', fontsize=10, weight='bold', zorder=13)
+    # Label ONLY Start and End points cleanly in black (bold) for high contrast and readability against grid
+    dist_start_end = np.sqrt((gammas[0] - gammas[-1])**2 + (betas[0] - betas[-1])**2)
+    if dist_start_end < 1.2:
+        # Shift labels in opposite directions to prevent overlap
+        ax2.text(gammas[0] - 0.5, betas[0] - 0.5, trajectory_cuts_offset[0] + 0.15, 
+                 f"Inizio\n$\\gamma$={gammas[0]:.3f}\n$\\beta$={betas[0]:.3f}", 
+                 color='black', fontsize=10, weight='bold', zorder=13)
+        ax2.text(gammas[-1] + 0.5, betas[-1] + 0.5, trajectory_cuts_offset[-1] + 0.25, 
+                 f"Ottimo\n(Costo={-trajectory_cuts[-1]:.2f})\n$\\gamma$={gammas[-1]:.3f}\n$\\beta$={betas[-1]:.3f}", 
+                 color='black', fontsize=10, weight='bold', zorder=13)
+    else:
+        # Standard offsets
+        ax2.text(gammas[0] + 0.1, betas[0] + 0.1, trajectory_cuts_offset[0] + 0.15, 
+                 f"Inizio\n$\\gamma$={gammas[0]:.3f}\n$\\beta$={betas[0]:.3f}", 
+                 color='black', fontsize=10, weight='bold', zorder=13)
+        ax2.text(gammas[-1] - 0.1, betas[-1] - 0.1, trajectory_cuts_offset[-1] + 0.25, 
+                 f"Ottimo\n(Costo={-trajectory_cuts[-1]:.2f})\n$\\gamma$={gammas[-1]:.3f}\n$\\beta$={betas[-1]:.3f}", 
+                 color='black', fontsize=10, weight='bold', zorder=13)
             
-    ax2.set_title("2. Panorama 3D del Taglio e Traiettoria GD\n(Il percorso sale verso la cima)", fontsize=13, fontweight='bold', pad=15)
+    ax2.set_title("2. Panorama 3D del Costo e Traiettoria GD\n(Il percorso scende verso il minimo)", fontsize=13, fontweight='bold', pad=15)
     ax2.set_xlabel("$\\gamma$ (Costo)", fontsize=11)
     ax2.set_ylabel("$\\beta$ (Mixer)", fontsize=11)
-    ax2.set_zlabel("Taglio Atteso $\\langle C \\rangle$", fontsize=11)
+    ax2.set_zlabel("Costo $-\\langle C \\rangle$", fontsize=11)
     ax2.set_xlim(0, 2 * np.pi)
-    ax2.set_ylim(0, np.pi)
-    ax2.set_zlim(0, max_possible_cut)
+    ax2.set_ylim(0, 2 * np.pi)
+    ax2.set_zlim(-max_possible_cut, 0)
     
     # Adjust initial view angle
     ax2.view_init(elev=35, azim=-60)
