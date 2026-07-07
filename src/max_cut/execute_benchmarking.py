@@ -187,5 +187,5 @@ def run_qaoa_benchmarking():
 
 
 if __name__ == "__main__":
-    #execute_benchmarking_setup()
+    execute_benchmarking_setup()
     run_qaoa_benchmarking() # Call the new QAOA benchmarking function

@@ -468,6 +468,25 @@ def plot_benchmark_graph(
         print_msg(f"Errore nel caricamento del file del grafo: {e}", is_error=True)
         return
 
+    from src.common.graphs import is_valid_graph
+    if not is_valid_graph(graph):
+        print_msg(f"Errore: Il grafo caricato non è valido (contiene nodi isolati). Eliminazione file...", is_error=True)
+        try:
+            os.remove(graph_filepath)
+            n_v = graph.graph.get('n_vertices')
+            dens = graph.graph.get('density_edges')
+            s_id = graph.graph.get('id')
+            seed = graph.graph.get('seed')
+            if n_v is not None and dens is not None and s_id is not None and seed is not None:
+                parent_dir = os.path.dirname(selected_dir)
+                ilp_file = os.path.join(parent_dir, "benchmarking_results", f"maxcut_ilp_n{n_v}_d{dens:.2f}_id{s_id}_seed{seed}.json")
+                if os.path.exists(ilp_file):
+                    os.remove(ilp_file)
+                    print_msg(f"Eliminato file dei risultati ILP associato: {os.path.basename(ilp_file)}")
+        except Exception as delete_error:
+            print_msg(f"Errore nella cancellazione del file: {delete_error}", is_error=True)
+        return
+
     # 6. Lettura del taglio massimo esatto (Max Cut)
     partitions = graph.graph.get('exact_max_cut_partitions', [])
     max_cut_val = graph.graph.get('exact_max_cut_value', -1)

@@ -4,7 +4,7 @@ import pickle
 import random
 from typing import List, Dict, Any, Optional
 
-from src.common.graphs import create_random_graph
+from src.common.graphs import create_random_graph, is_valid_graph
 from src.data.exact_maxcut_solver import find_exact_maxcut # Import the solver
 
 def generate_and_save_graphs(
@@ -31,6 +31,8 @@ def generate_and_save_graphs(
             for i in range(num_graphs_per_combo):
                 seed = random.randint(0, 1000000) # Use a large range for seeds
                 graph = create_random_graph(n_nodes=n_vertices, probability=density, seed=seed)
+                assert is_valid_graph(graph), f"Generated graph with N={n_vertices}, D={density:.2f}, seed={seed} is invalid!"
+                
                 
                 # Add metadata to the graph for easy identification
                 graph.graph['n_vertices'] = n_vertices
@@ -82,6 +84,26 @@ def load_graphs(
                 with open(filepath, 'rb') as f:
                     graph = pickle.load(f)
                 
+                # Validate graph: must not contain isolated nodes (degree >= 1 for all nodes)
+                if not is_valid_graph(graph):
+                    print(f"Warning: Graph in {filename} is invalid (contains isolated nodes). Deleting file...")
+                    try:
+                        os.remove(filepath)
+                        # Also delete corresponding ILP result file if it exists
+                        n_v = graph.graph.get('n_vertices')
+                        dens = graph.graph.get('density_edges')
+                        s_id = graph.graph.get('id')
+                        seed = graph.graph.get('seed')
+                        if n_v is not None and dens is not None and s_id is not None and seed is not None:
+                            parent_dir = os.path.dirname(input_dir)
+                            ilp_file = os.path.join(parent_dir, "benchmarking_results", f"maxcut_ilp_n{n_v}_d{dens:.2f}_id{s_id}_seed{seed}.json")
+                            if os.path.exists(ilp_file):
+                                os.remove(ilp_file)
+                                print(f"  Deleted associated ILP result file: {os.path.basename(ilp_file)}")
+                    except Exception as delete_error:
+                        print(f"  Error deleting invalid files: {delete_error}")
+                    continue
+
                 # Check metadata for filtering
                 match = True
                 if n_vertex is not None and graph.graph.get('n_vertices') != n_vertex:
