@@ -128,6 +128,53 @@ def get_objective_function(
 
     return objective_function, history
 
+def custom_gradient_descent(
+    objective_function: Callable[[np.ndarray], float],
+    x0: np.ndarray,
+    learning_rate: float = 0.1,
+    max_iterations: int = 100,
+    tol: float = 1e-5,
+    dx: float = 1e-5
+) -> Tuple[np.ndarray, float, int, str]:
+    """
+    Custom Gradient Descent optimizer using central finite differences for gradient estimation.
+    """
+    x = np.array(x0, dtype=float).copy()
+    n = len(x)
+    num_iterations = 0
+    termination_reason = "max_iterations_reached"
+
+    for i in range(max_iterations):
+        num_iterations = i + 1
+        
+        # Evaluate current function value
+        f_val = objective_function(x)
+        
+        # Estimate gradient using central differences
+        grad = np.zeros(n)
+        for j in range(n):
+            x_plus = x.copy()
+            x_plus[j] += dx
+            x_minus = x.copy()
+            x_minus[j] -= dx
+            
+            f_plus = objective_function(x_plus)
+            f_minus = objective_function(x_minus)
+            grad[j] = (f_plus - f_minus) / (2 * dx)
+            
+        # Check gradient norm convergence
+        grad_norm = np.linalg.norm(grad)
+        if grad_norm < tol:
+            termination_reason = f"converged: gradient norm ({grad_norm:.6f}) < tol ({tol})"
+            break
+            
+        # Update position
+        x -= learning_rate * grad
+
+    # Final evaluation
+    f_final = objective_function(x)
+    return x, f_final, num_iterations, termination_reason
+
 
 def qaoa_optimizer(
     ansatz_circuit: QuantumCircuit,
@@ -149,7 +196,7 @@ def qaoa_optimizer(
         graph (nx.Graph): The graph associated with the MaxCut problem.
         cost_hamiltonian (PauliSumOp): The cost Hamiltonian for the MaxCut problem.
         initial_params (np.ndarray): Initial guess for the QAOA parameters (gamma and beta).
-        optimizer_method (str): Classical optimization method (e.g., 'COBYLA', 'SLSQP').
+        optimizer_method (str): Classical optimization method (e.g., 'COBYLA', 'SLSQP', 'GD').
         max_iterations (int): Maximum number of classical optimization iterations.
         sampler (Sampler): Qiskit Sampler primitive instance.
         tol (Optional[float]): Tolerance for termination passed to SciPy minimize.
@@ -173,18 +220,27 @@ def qaoa_optimizer(
 
     termination_reason = "optimizer_completed"
     try:
-        # Perform classical optimization
-        result = minimize(
-            objective_function,
-            initial_params,
-            method=optimizer_method,
-            tol=tol,
-            options={'maxiter': max_iterations, 'disp': False} # disp=True for verbose output
-        )
-        optimal_params = result.x
-        optimal_value = result.fun
-        num_iterations = getattr(result, 'nit', getattr(result, 'nfev', 0))
-        termination_reason = getattr(result, 'message', 'completed successfully')
+        if optimizer_method.upper() == 'GD':
+            optimal_params, optimal_value, num_iterations, termination_reason = custom_gradient_descent(
+                objective_function,
+                initial_params,
+                learning_rate=0.1,
+                max_iterations=max_iterations,
+                tol=tol if tol is not None else 1e-5
+            )
+        else:
+            # Perform classical optimization using SciPy minimize
+            result = minimize(
+                objective_function,
+                initial_params,
+                method=optimizer_method,
+                tol=tol,
+                options={'maxiter': max_iterations, 'disp': False} # disp=True for verbose output
+            )
+            optimal_params = result.x
+            optimal_value = result.fun
+            num_iterations = getattr(result, 'nit', getattr(result, 'nfev', 0))
+            termination_reason = getattr(result, 'message', 'completed successfully')
     except OptimizationTerminator as e:
         optimal_params = e.params
         optimal_value = e.value

@@ -32,6 +32,7 @@ class QAOARunner:
         self,
         max_optimization_iterations: int = 100,
         shots: int = 1024,
+        optimizer_method: str = 'COBYLA',
         tol: Optional[float] = None,
         epsilon: Optional[float] = None,
         timeout: Optional[float] = None
@@ -42,6 +43,7 @@ class QAOARunner:
         Args:
             max_optimization_iterations (int): Maximum iterations for the classical optimizer.
             shots (int): Number of shots for circuit sampling.
+            optimizer_method (str): Classical optimization method (e.g., 'COBYLA', 'SLSQP', 'GD').
             tol (Optional[float]): Tolerance for termination passed to SciPy minimize.
             epsilon (Optional[float]): Epsilon convergence threshold for custom early stopping.
             timeout (Optional[float]): Timeout threshold in seconds for early stopping.
@@ -49,7 +51,7 @@ class QAOARunner:
         Returns:
             Dict[str, Any]: A dictionary containing QAOA results and metrics.
         """
-        print(f"  Running QAOA for N={self.num_qubits}, p={self.p_value}, mixer={self.mixer_type}, encoding={self.encoding_type}")
+        print(f"  Running QAOA for N={self.num_qubits}, p={self.p_value}, mixer={self.mixer_type}, encoding={self.encoding_type} (optimizer={optimizer_method})")
 
         # 1. Initialize parameters
         # Qiskit parameters are 2*p_value: p gammas and p betas
@@ -62,6 +64,7 @@ class QAOARunner:
             self.cost_hamiltonian,
             initial_params,
             sampler=self.sampler,
+            optimizer_method=optimizer_method,
             max_iterations=max_optimization_iterations,
             tol=tol,
             epsilon=epsilon,

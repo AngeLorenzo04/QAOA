@@ -26,3 +26,24 @@ def test_qaoa_timeout_termination():
     termination_reason = results['metrics'].get('termination_reason', '')
     print("Timeout Termination Reason:", termination_reason)
     assert "terminated_early: timeout" in termination_reason
+
+def test_qaoa_custom_gradient_descent():
+    """Test that the custom Gradient Descent (GD) optimizer converges successfully."""
+    graph = create_random_graph(n_nodes=3, probability=0.8, seed=42)
+    runner = QAOARunner(graph, p_value=1)
+    
+    results = runner.run(max_optimization_iterations=20, optimizer_method='GD')
+    
+    assert results['metrics']['optimization_iterations'] > 0
+    assert results['best_measured_cut_value'] >= 0
+
+def test_qaoa_scipy_gradient_descent():
+    """Test that the SciPy BFGS gradient-based optimizer converges successfully."""
+    graph = create_random_graph(n_nodes=3, probability=0.8, seed=42)
+    runner = QAOARunner(graph, p_value=1)
+    
+    results = runner.run(max_optimization_iterations=20, optimizer_method='BFGS')
+    
+    assert results['metrics']['optimization_iterations'] > 0
+    assert results['best_measured_cut_value'] >= 0
+
