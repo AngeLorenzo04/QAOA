@@ -82,13 +82,23 @@ def get_objective_function(
                 f"timeout ({timeout}s exceeded)"
             )
 
-        # Split params into gamma and beta
+        # Split params into beta and gamma (since beta is first alphabetically: [beta, gamma])
         p = len(ansatz_circuit.parameters) // 2
-        gamma_params = params[:p]
-        beta_params = params[p:]
+        beta_params = params[:p]
+        gamma_params = params[p:]
         
-        # Bind parameters to the ansatz circuit
-        bound_circuit = ansatz_circuit.assign_parameters(dict(zip(ansatz_circuit.parameters, params)))
+        # Bind parameters to the ansatz circuit by their explicit name
+        param_dict = {}
+        for param in ansatz_circuit.parameters:
+            name = param.name
+            if 'beta' in name:
+                idx = int(name.split('[')[1].split(']')[0])
+                param_dict[param] = beta_params[idx]
+            elif 'gamma' in name:
+                idx = int(name.split('[')[1].split(']')[0])
+                param_dict[param] = gamma_params[idx]
+                
+        bound_circuit = ansatz_circuit.assign_parameters(param_dict)
 
         # Ensure the circuit has measurements before running the sampler
         measured_circuit = bound_circuit.measure_all(inplace=False)
@@ -144,9 +154,9 @@ def custom_gradient_descent(
     n = len(x)
     p = n // 2
     
-    # Wrap initial parameters
-    x[:p] = np.mod(x[:p], 2 * np.pi)
-    x[p:] = np.mod(x[p:], np.pi)
+    # Wrap initial parameters (x[:p] is beta, x[p:] is gamma)
+    x[:p] = np.mod(x[:p], np.pi)
+    x[p:] = np.mod(x[p:], 2 * np.pi)
     
     trajectory_params = [x.copy().tolist()]
     num_iterations = 0
@@ -179,9 +189,9 @@ def custom_gradient_descent(
         # Update position
         x -= learning_rate * grad
         
-        # Keep parameters within periodic boundaries
-        x[:p] = np.mod(x[:p], 2 * np.pi)
-        x[p:] = np.mod(x[p:], np.pi)
+        # Keep parameters within periodic boundaries (x[:p] is beta, x[p:] is gamma)
+        x[:p] = np.mod(x[:p], np.pi)
+        x[p:] = np.mod(x[p:], 2 * np.pi)
         
         trajectory_params.append(x.copy().tolist())
 
