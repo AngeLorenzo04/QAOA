@@ -74,6 +74,7 @@ class QAOARunner:
         num_optimization_iterations = optimization_results['num_iterations']
         termination_reason = optimization_results.get('termination_reason', 'optimizer_completed')
         optimization_history = optimization_results['history'] # Extract history
+        trajectory_params = optimization_results.get('trajectory_params', [])
         
         # 3. Bind optimal parameters to the ansatz circuit
         optimal_circuit = self.ansatz_circuit.assign_parameters(dict(zip(self.ansatz_circuit.parameters, optimal_params)))
@@ -117,6 +118,7 @@ class QAOARunner:
                 'optimization_iterations': num_optimization_iterations,
                 'termination_reason': termination_reason,
                 'optimization_history': optimization_history, # Include optimization history
+                'trajectory_params': trajectory_params, # Include trajectory parameters
                 'total_shots': shots # Assuming shots are constant for sampling
             }
         }

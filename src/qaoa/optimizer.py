@@ -134,13 +134,21 @@ def custom_gradient_descent(
     learning_rate: float = 0.1,
     max_iterations: int = 100,
     tol: float = 1e-5,
-    dx: float = 1e-5
-) -> Tuple[np.ndarray, float, int, str]:
+    dx: float = 0.2
+) -> Tuple[np.ndarray, float, int, str, List[List[float]]]:
     """
     Custom Gradient Descent optimizer using central finite differences for gradient estimation.
+    Uses modulo wrapping to keep parameters within [0, 2*pi] (gamma) and [0, pi] (beta).
     """
     x = np.array(x0, dtype=float).copy()
     n = len(x)
+    p = n // 2
+    
+    # Wrap initial parameters
+    x[:p] = np.mod(x[:p], 2 * np.pi)
+    x[p:] = np.mod(x[p:], np.pi)
+    
+    trajectory_params = [x.copy().tolist()]
     num_iterations = 0
     termination_reason = "max_iterations_reached"
 
@@ -170,10 +178,16 @@ def custom_gradient_descent(
             
         # Update position
         x -= learning_rate * grad
+        
+        # Keep parameters within periodic boundaries
+        x[:p] = np.mod(x[:p], 2 * np.pi)
+        x[p:] = np.mod(x[p:], np.pi)
+        
+        trajectory_params.append(x.copy().tolist())
 
     # Final evaluation
     f_final = objective_function(x)
-    return x, f_final, num_iterations, termination_reason
+    return x, f_final, num_iterations, termination_reason, trajectory_params
 
 
 def qaoa_optimizer(
@@ -210,6 +224,7 @@ def qaoa_optimizer(
                         - 'num_iterations': Number of classical optimization iterations.
                         - 'termination_reason': Message describing how optimization ended.
                         - 'history': A dictionary containing the optimization history.
+                        - 'trajectory_params': List of parameters at each optimization step.
     """
     if sampler is None:
         sampler = Sampler() # Use default sampler if not provided
@@ -218,15 +233,17 @@ def qaoa_optimizer(
         ansatz_circuit, cost_hamiltonian, graph, sampler, epsilon=epsilon, timeout=timeout
     )
 
+    trajectory_params = [initial_params.copy().tolist()]
     termination_reason = "optimizer_completed"
     try:
         if optimizer_method.upper() == 'GD':
-            optimal_params, optimal_value, num_iterations, termination_reason = custom_gradient_descent(
+            optimal_params, optimal_value, num_iterations, termination_reason, trajectory_params = custom_gradient_descent(
                 objective_function,
                 initial_params,
                 learning_rate=0.1,
                 max_iterations=max_iterations,
-                tol=tol if tol is not None else 1e-5
+                tol=tol if tol is not None else 1e-5,
+                dx=0.2
             )
         else:
             # Perform classical optimization using SciPy minimize
@@ -235,6 +252,7 @@ def qaoa_optimizer(
                 initial_params,
                 method=optimizer_method,
                 tol=tol,
+                callback=lambda xk: trajectory_params.append(xk.copy().tolist()),
                 options={'maxiter': max_iterations, 'disp': False} # disp=True for verbose output
             )
             optimal_params = result.x
@@ -252,7 +270,8 @@ def qaoa_optimizer(
         'optimal_value': optimal_value,
         'num_iterations': num_iterations,
         'termination_reason': termination_reason,
-        'history': history # Store the history of objective function values and parameters
+        'history': history, # Store the history of all objective function evaluations
+        'trajectory_params': trajectory_params # Store only the main steps of parameters
     }
 
 if __name__ == '__main__':
