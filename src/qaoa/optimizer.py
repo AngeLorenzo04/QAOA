@@ -5,8 +5,17 @@ from qiskit.result import QuasiDistribution
 from qiskit.circuit import QuantumCircuit, ParameterVector
 from qiskit.opflow import PauliSumOp
 from scipy.optimize import minimize
-from typing import Dict, Any, List, Tuple, Callable
+from typing import Dict, Any, List, Tuple, Callable, Optional
 import numpy as np
+import time
+
+class OptimizationTerminator(Exception):
+    """Custom exception to stop SciPy optimization early on convergence or timeout."""
+    def __init__(self, params: np.ndarray, value: float, reason: str):
+        super().__init__(reason)
+        self.params = params
+        self.value = value
+        self.reason = reason
 
 # Assuming get_cost_hamiltonian is available from ansatz module for expectation value calculation
 # In a real scenario, this would be passed or imported from a higher level.
@@ -29,8 +38,10 @@ def get_objective_function(
     ansatz_circuit: QuantumCircuit,
     cost_hamiltonian: PauliSumOp,
     graph: nx.Graph,
-    sampler: Sampler
-) -> Callable[[np.ndarray], float]:
+    sampler: Sampler,
+    epsilon: Optional[float] = None,
+    timeout: Optional[float] = None
+) -> Tuple[Callable[[np.ndarray], float], Dict[str, Any]]:
     """
     Returns the objective function to be minimized by the classical optimizer.
     This function calculates the expectation value of the cost Hamiltonian.
@@ -40,18 +51,37 @@ def get_objective_function(
         cost_hamiltonian (PauliSumOp): The cost Hamiltonian for the MaxCut problem.
         graph (nx.Graph): The graph for which to calculate the cut value (needed for sampling method).
         sampler (Sampler): Qiskit Sampler primitive for expectation value calculation.
+        epsilon (Optional[float]): Convergence threshold. Stop if objective function value variation
+                                   over the last 5 iterations is less than epsilon.
+        timeout (Optional[float]): Timeout threshold in seconds. Stop if optimization exceeds this duration.
 
     Returns:
-        Callable[[np.ndarray], float]: An objective function that takes a flat array of
-                                        parameters (gamma and beta) and returns the
-                                        negative of the expectation value (since we minimize).
+        Tuple[Callable[[np.ndarray], float], Dict[str, Any]]:
+            - An objective function that takes a flat array of parameters (gamma and beta)
+              and returns the negative of the expectation value.
+            - A dictionary containing the optimization history.
     """
     num_qubits = ansatz_circuit.num_qubits
     
     # Store history of evaluations
     history = {'fun': [], 'params': []}
+    
+    # Track best params, value, and start time for early termination recovery
+    best_value = float('inf')
+    best_params = None
+    start_time = time.time()
 
     def objective_function(params: np.ndarray) -> float:
+        nonlocal best_value, best_params
+        
+        # Check timeout first
+        if timeout is not None and (time.time() - start_time) > timeout:
+            raise OptimizationTerminator(
+                best_params if best_params is not None else params,
+                best_value if best_value != float('inf') else 0.0,
+                f"timeout ({timeout}s exceeded)"
+            )
+
         # Split params into gamma and beta
         p = len(ansatz_circuit.parameters) // 2
         gamma_params = params[:p]
@@ -60,16 +90,6 @@ def get_objective_function(
         # Bind parameters to the ansatz circuit
         bound_circuit = ansatz_circuit.assign_parameters(dict(zip(ansatz_circuit.parameters, params)))
 
-        # Calculate expectation value using the sampler
-        # The sampler primitive directly calculates expectation values for SparsePauliOp
-        # by passing the operator with the circuit.
-        # Note: cost_hamiltonian needs to be a Qiskit Operator (e.g., SparsePauliOp)
-        # for direct expectation value calculation with primitives.
-        
-        # If cost_hamiltonian is PauliSumOp, convert to SparsePauliOp for sampler
-        # This conversion might be implicit in future Qiskit versions or needs a specific method.
-        # For now, let's assume it can be directly used, or we manually calculate from counts.
-        
         # Ensure the circuit has measurements before running the sampler
         measured_circuit = bound_circuit.measure_all(inplace=False)
         
@@ -81,33 +101,28 @@ def get_objective_function(
         for state_int, prob in quasi_distribution.items():
             # Convert integer state to bitstring
             bitstring = format(state_int, f'0{num_qubits}b')
-            # For MaxCut, the value is higher for better cuts.
-            # The cost Hamiltonian in Qiskit is usually defined such that
-            # its expectation value is proportional to the negative of the cut value (to minimize).
-            # H_C = sum_{<i,j>} (1 - Z_i Z_j) / 2
-            # For a Z_i Z_j term, if i and j are in different sets, Z_i Z_j = -1, (1 - (-1))/2 = 1.
-            # If i and j are in same set, Z_i Z_j = 1, (1 - 1)/2 = 0.
-            # So, the expectation value of H_C is the cut value. We want to maximize the cut value,
-            # hence we minimize -E[H_C].
-
-            # cost_hamiltonian.expectation_value(Statevector.from_int(int(bitstring, 2), num_qubits))
-            # The PauliSumOp.expectation_value method takes a Statevector or an Operator.
-            # Instead of manually calculating from bitstrings, let's assume `sampler` directly gives expectation value
-            # if we pass the operator to its `run` method, which is the intended usage of `Estimator` primitive.
-            # The `Sampler` primitive gives measurement outcomes.
-            
-            # Let's use `get_cost_hamiltonian` to define the cost for a given bitstring directly.
-            # We need the `calculate_maxcut_value` to convert bitstring to cut value.
             maxcut_val_for_bitstring = calculate_maxcut_value(graph, bitstring)
-            # The cost Hamiltonian is defined such that its expectation value *is* the cut value
-            # E[H_C] = sum_x P(x) * <x|H_C|x> = sum_x P(x) * (cut_value(x))
-            # We want to maximize this, so we minimize its negative.
             exp_val += prob * maxcut_val_for_bitstring
             
         neg_expectation_value = -exp_val
 
         history['fun'].append(neg_expectation_value)
         history['params'].append(params.tolist())
+
+        if neg_expectation_value < best_value:
+            best_value = neg_expectation_value
+            best_params = params.copy()
+
+        # Check custom epsilon convergence (range of last 5 evaluations)
+        if epsilon is not None and len(history['fun']) >= 5:
+            last_vals = history['fun'][-5:]
+            val_range = max(last_vals) - min(last_vals)
+            if val_range < epsilon:
+                raise OptimizationTerminator(
+                    best_params,
+                    best_value,
+                    f"epsilon convergence (< {epsilon})"
+                )
 
         return neg_expectation_value
 
@@ -121,7 +136,10 @@ def qaoa_optimizer(
     initial_params: np.ndarray,
     optimizer_method: str = 'COBYLA',
     max_iterations: int = 100,
-    sampler: Sampler = None
+    sampler: Sampler = None,
+    tol: Optional[float] = None,
+    epsilon: Optional[float] = None,
+    timeout: Optional[float] = None
 ) -> Dict[str, Any]:
     """
     Performs classical optimization to find optimal QAOA parameters.
@@ -134,35 +152,50 @@ def qaoa_optimizer(
         optimizer_method (str): Classical optimization method (e.g., 'COBYLA', 'SLSQP').
         max_iterations (int): Maximum number of classical optimization iterations.
         sampler (Sampler): Qiskit Sampler primitive instance.
+        tol (Optional[float]): Tolerance for termination passed to SciPy minimize.
+        epsilon (Optional[float]): Epsilon convergence threshold for custom early stopping.
+        timeout (Optional[float]): Timeout threshold in seconds for early stopping.
 
     Returns:
         Dict[str, Any]: A dictionary containing optimization results:
                         - 'optimal_params': Optimized gamma and beta values.
                         - 'optimal_value': The minimized objective function value.
                         - 'num_iterations': Number of classical optimization iterations.
+                        - 'termination_reason': Message describing how optimization ended.
                         - 'history': A dictionary containing the optimization history.
     """
     if sampler is None:
         sampler = Sampler() # Use default sampler if not provided
 
-    objective_function, history = get_objective_function(ansatz_circuit, cost_hamiltonian, graph, sampler)
-
-    # Perform classical optimization
-    result = minimize(
-        objective_function,
-        initial_params,
-        method=optimizer_method,
-        options={'maxiter': max_iterations, 'disp': False} # disp=True for verbose output
+    objective_function, history = get_objective_function(
+        ansatz_circuit, cost_hamiltonian, graph, sampler, epsilon=epsilon, timeout=timeout
     )
 
-    optimal_params = result.x
-    optimal_value = result.fun
-    num_iterations = getattr(result, 'nit', getattr(result, 'nfev', 0))
+    termination_reason = "optimizer_completed"
+    try:
+        # Perform classical optimization
+        result = minimize(
+            objective_function,
+            initial_params,
+            method=optimizer_method,
+            tol=tol,
+            options={'maxiter': max_iterations, 'disp': False} # disp=True for verbose output
+        )
+        optimal_params = result.x
+        optimal_value = result.fun
+        num_iterations = getattr(result, 'nit', getattr(result, 'nfev', 0))
+        termination_reason = getattr(result, 'message', 'completed successfully')
+    except OptimizationTerminator as e:
+        optimal_params = e.params
+        optimal_value = e.value
+        num_iterations = len(history['fun'])
+        termination_reason = f"terminated_early: {e.reason}"
 
     return {
-        'optimal_params': optimal_params.tolist(),
+        'optimal_params': optimal_params.tolist() if hasattr(optimal_params, 'tolist') else list(optimal_params),
         'optimal_value': optimal_value,
         'num_iterations': num_iterations,
+        'termination_reason': termination_reason,
         'history': history # Store the history of objective function values and parameters
     }
 

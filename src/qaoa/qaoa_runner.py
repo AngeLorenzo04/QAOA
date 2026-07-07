@@ -2,7 +2,7 @@ import networkx as nx
 from qiskit.circuit import QuantumCircuit
 from qiskit.primitives import Sampler, Estimator
 from qiskit.opflow import PauliSumOp
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
 
 from src.qaoa.ansatz import get_qaoa_ansatz, get_cost_hamiltonian
@@ -28,13 +28,23 @@ class QAOARunner:
         self.ansatz_circuit = get_qaoa_ansatz(self.graph, self.p_value)
         self.cost_hamiltonian = get_cost_hamiltonian(self.graph)
 
-    def run(self, max_optimization_iterations: int = 100, shots: int = 1024) -> Dict[str, Any]:
+    def run(
+        self,
+        max_optimization_iterations: int = 100,
+        shots: int = 1024,
+        tol: Optional[float] = None,
+        epsilon: Optional[float] = None,
+        timeout: Optional[float] = None
+    ) -> Dict[str, Any]:
         """
         Runs the QAOA optimization and simulation for the configured graph and parameters.
 
         Args:
             max_optimization_iterations (int): Maximum iterations for the classical optimizer.
             shots (int): Number of shots for circuit sampling.
+            tol (Optional[float]): Tolerance for termination passed to SciPy minimize.
+            epsilon (Optional[float]): Epsilon convergence threshold for custom early stopping.
+            timeout (Optional[float]): Timeout threshold in seconds for early stopping.
 
         Returns:
             Dict[str, Any]: A dictionary containing QAOA results and metrics.
@@ -52,10 +62,14 @@ class QAOARunner:
             self.cost_hamiltonian,
             initial_params,
             sampler=self.sampler,
-            max_iterations=max_optimization_iterations
+            max_iterations=max_optimization_iterations,
+            tol=tol,
+            epsilon=epsilon,
+            timeout=timeout
         )
         optimal_params = optimization_results['optimal_params']
         num_optimization_iterations = optimization_results['num_iterations']
+        termination_reason = optimization_results.get('termination_reason', 'optimizer_completed')
         optimization_history = optimization_results['history'] # Extract history
         
         # 3. Bind optimal parameters to the ansatz circuit
@@ -98,6 +112,7 @@ class QAOARunner:
                 'circuit_depth': circuit_depth,
                 'num_parameters': num_parameters,
                 'optimization_iterations': num_optimization_iterations,
+                'termination_reason': termination_reason,
                 'optimization_history': optimization_history, # Include optimization history
                 'total_shots': shots # Assuming shots are constant for sampling
             }

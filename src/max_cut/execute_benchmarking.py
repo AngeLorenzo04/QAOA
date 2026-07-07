@@ -137,7 +137,12 @@ def run_qaoa_benchmarking():
                     )
 
                     # Run QAOA and get results
-                    qaoa_run_results = runner.run(max_optimization_iterations=100, shots=1024)
+                    qaoa_run_results = runner.run(
+                        max_optimization_iterations=100,
+                        shots=1024,
+                        epsilon=1e-5,
+                        timeout=180.0
+                    )
                     
                     # Calculate approximation ratio
                     qaoa_cut_value = qaoa_run_results['best_measured_cut_value']
@@ -169,6 +174,7 @@ def run_qaoa_benchmarking():
                             'circuit_depth': qaoa_run_results['metrics']['circuit_depth'],
                             'num_parameters': qaoa_run_results['metrics']['num_parameters'],
                             'optimization_iterations': qaoa_run_results['metrics']['optimization_iterations'],
+                            'termination_reason': qaoa_run_results['metrics'].get('termination_reason', 'optimizer_completed'),
                             'optimization_history': qaoa_run_results['metrics']['optimization_history'], # Add optimization history
                             'total_shots': qaoa_run_results['metrics']['total_shots']
                         }
