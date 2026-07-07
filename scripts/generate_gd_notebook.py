@@ -20,9 +20,9 @@ def add_code(text):
     })
 
 # --- Introduction Cell ---
-add_md("""
+add_md(r"""
 # Studio dell'Ottimizzazione QAOA tramite Gradient Descent (Discesa del Gradiente)
-Questo notebook è dedicato all'esplorazione teorica e pratica del funzionamento dell'algoritmo di **Gradient Descent (GD)** applicato alla minimizzazione della funzione di costo del **Quantum Approximate Optimization Algorithm (QAOA)** per il problema del Max-Cut.
+Questo notebook è dedicato all'esplorazione teorica e prima del funzionamento dell'algoritmo di **Gradient Descent (GD)** applicato alla minimizzazione della funzione di costo del **Quantum Approximate Optimization Algorithm (QAOA)** per il problema del Max-Cut.
 
 ---
 
@@ -60,12 +60,12 @@ In questo notebook, impostiamo una perturbazione $dx = 0.2$ per rendere la stima
 """)
 
 # --- Setup Cell ---
-add_md("""
+add_md(r"""
 ## Setup dell'Ambiente e Importazioni
 Importiamo i moduli necessari del progetto e le librerie grafiche per visualizzare i risultati.
 """)
 
-add_code("""
+add_code(r"""
 import sys
 import os
 import numpy as np
@@ -81,12 +81,12 @@ from src.qaoa.optimizer import calculate_maxcut_value
 """)
 
 # --- Esecuzione GD Cell ---
-add_md("""
+add_md(r"""
 ## 1. Esecuzione del QAOA con Gradient Descent
 Creiamo un grafo a ciclo di 4 nodi ($C_4$) ed eseguiamo il runner QAOA con l'ottimizzatore a discesa del gradiente (`GD`), salvando l'intera traiettoria percorsa dai parametri.
 """)
 
-add_code("""
+add_code(r"""
 # Creazione di un ciclo a 4 nodi (Max Cut teorico = 4.0)
 G = nx.cycle_graph(4)
 
@@ -103,32 +103,55 @@ results = runner.run(
 
 # Estraiamo i dettagli dei risultati e la traiettoria dei parametri
 opt_params = results['optimal_params']
-history = results['metrics']['optimization_history']
 trajectory_params = np.array(results['metrics']['trajectory_params'])
 
 # Mappiamo i parametri nei loro intervalli periodici [0, 2*pi] per coerenza visiva
 trajectory_params[:, 0] = np.mod(trajectory_params[:, 0], 2 * np.pi) # beta
 trajectory_params[:, 1] = np.mod(trajectory_params[:, 1], 2 * np.pi) # gamma
 
-print(f"\nOttimizzazione terminata!")
+print("\nOttimizzazione terminata!")
 print(f"Iterazioni effettuate: {results['metrics']['optimization_iterations']}")
 print(f"Parametri ottimi trovati: beta = {opt_params[0]:.4f}, gamma = {opt_params[1]:.4f}")
 print(f"Valore atteso ottimo del taglio: {results['qaoa_expected_cut_value']:.4f}")
 """)
 
 # --- Visualizzazione Traiettoria 2D ---
-add_md("""
+add_md(r"""
 ## 2. Visualizzazione 2D della Convergenza
 Tracciamo l'evoluzione dei parametri $\gamma$ (angolo del costo) e $\beta$ (angolo del mixer) passo dopo passo, associandoli al valore del costo decrescente $-\langle C \rangle$.
 """)
 
-add_code("""
-iterations = np.arange(len(history))
+add_code(r"""
+# Utilizziamo il sampler interno al runner per coerenza statistica
+sampler = runner.sampler
+
+# Valutiamo il costo esatto lungo ciascun punto della traiettoria principale
+cost_history = []
+num_qubits = G.number_of_nodes()
+
+for params in trajectory_params:
+    param_dict = {}
+    for param in runner.ansatz_circuit.parameters:
+        if 'beta' in param.name:
+            param_dict[param] = params[0]
+        elif 'gamma' in param.name:
+            param_dict[param] = params[1]
+            
+    bound_circuit = runner.ansatz_circuit.assign_parameters(param_dict)
+    measured_circuit = bound_circuit.measure_all(inplace=False)
+    job = sampler.run(measured_circuit, shots=1024)
+    dist = job.result().quasi_dists[0]
+    
+    exp_val = 0.0
+    for state_int, prob in dist.items():
+        bitstring = format(state_int, f'0{num_qubits}b')
+        exp_val += prob * calculate_maxcut_value(G, bitstring)
+    cost_history.append(-exp_val)
+
+cost_history = np.array(cost_history)
+iterations = np.arange(len(cost_history))
 betas = trajectory_params[:, 0]
 gammas = trajectory_params[:, 1]
-
-# Convertiamo la storia del taglio nel costo negativo per coerenza con la discesa
-cost_history = -np.array(history)
 
 fig, ax1 = plt.subplots(figsize=(10, 5))
 
@@ -156,21 +179,18 @@ plt.show()
 """)
 
 # --- Calcolo Landscape ---
-add_md("""
+add_md(r"""
 ## 3. Calcolo del Panorama di Costo (3D Surface & Contour)
 Per poter sovrapporre la traiettoria dell'ottimizzatore su un grafico continuo del panorama quantistico, calcoliamo i valori della funzione di costo $-\langle C(\gamma, \beta) \rangle$ su una griglia di valori di $\gamma$ e $\beta$ distribuiti tra $0$ e $2\pi$.
 """)
 
-add_code("""
+add_code(r"""
 # Calcolo della griglia (22x22 = 484 punti)
 steps = 22
 gamma_vals = np.linspace(0, 2 * np.pi, steps)
 beta_vals = np.linspace(0, 2 * np.pi, steps)
 gamma_grid, beta_grid = np.meshgrid(gamma_vals, beta_vals)
 cost_grid = np.zeros_like(gamma_grid)
-
-sampler = Sampler()
-num_qubits = G.number_of_nodes()
 
 print("Calcolo in corso del panorama quantistico (484 valutazioni)...")
 for i in range(steps):
@@ -202,12 +222,12 @@ print("Panorama quantistico calcolato con successo!")
 """)
 
 # --- Visualizzazione Traiettoria Contour ---
-add_md("""
+add_md(r"""
 ## 4. Visualizzazione Bidimensionale a Contorni (Contour Plot)
 Un modo chiaro per vedere come l'ottimizzatore scende verso le valli di minimo è tracciare un grafico a contorni colorati (Contour Plot) in 2D e sovrapporre ad esso la traiettoria percorsa dal Gradient Descent.
 """)
 
-add_code("""
+add_code(r"""
 plt.figure(figsize=(10, 8))
 
 # Disegna la mappa di costo riempita
@@ -230,12 +250,12 @@ plt.show()
 """)
 
 # --- Visualizzazione Traiettoria 3D ---
-add_md("""
+add_md(r"""
 ## 5. Panorama 3D del Costo e Traiettoria in 3D
 Utilizziamo gli strumenti tridimensionali di Matplotlib (`mplot3d`) per renderizzare la superficie del costo e mostrare come la traiettoria scenda lungo i fianchi del panorama.
 """)
 
-add_code("""
+add_code(r"""
 from mpl_toolkits.mplot3d import Axes3D
 
 fig = plt.figure(figsize=(12, 9))
@@ -245,38 +265,12 @@ ax = fig.add_subplot(111, projection='3d')
 surf = ax.plot_surface(gamma_grid, beta_grid, cost_grid, cmap='viridis', alpha=0.75, edgecolor='none', zorder=1)
 fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label='Costo -<C>')
 
-# Valuta i costi della traiettoria effettiva per mapparli sull'asse Z
-trajectory_cuts_evaluated = []
-for idx in range(len(gammas)):
-    g = gammas[idx]
-    b = betas[idx]
-    
-    param_dict = {}
-    for param in runner.ansatz_circuit.parameters:
-        if 'gamma' in param.name:
-            param_dict[param] = g
-        elif 'beta' in param.name:
-            param_dict[param] = b
-            
-    bound_circuit = runner.ansatz_circuit.assign_parameters(param_dict)
-    measured_circuit = bound_circuit.measure_all(inplace=False)
-    job = sampler.run(measured_circuit, shots=1024)
-    dist = job.result().quasi_dists[0]
-    
-    exp_val = 0.0
-    for state_int, prob in dist.items():
-        bitstring = format(state_int, f'0{num_qubits}b')
-        exp_val += prob * calculate_maxcut_value(G, bitstring)
-    trajectory_cuts_evaluated.append(-exp_val)
-
-trajectory_cuts_evaluated = np.array(trajectory_cuts_evaluated)
-
 # Disegna la linea della traiettoria nello spazio 3D
-ax.plot(gammas, betas, trajectory_cuts_evaluated, color='cyan', linewidth=4, zorder=10, label='Percorso Ottimizzazione')
+ax.plot(gammas, betas, cost_history, color='cyan', linewidth=4, zorder=10, label='Percorso Ottimizzazione')
 
 # Marcatori di inizio e fine
-ax.scatter(gammas[0], betas[0], trajectory_cuts_evaluated[0], color='lime', edgecolor='black', s=120, zorder=15, label='Inizio')
-ax.scatter(gammas[-1], betas[-1], trajectory_cuts_evaluated[-1], color='red', edgecolor='black', marker='*', s=200, zorder=15, label='Ottimo')
+ax.scatter(gammas[0], betas[0], cost_history[0], color='lime', edgecolor='black', s=120, zorder=15, label='Inizio')
+ax.scatter(gammas[-1], betas[-1], cost_history[-1], color='red', edgecolor='black', marker='*', s=200, zorder=15, label='Ottimo')
 
 # Configurazione assi e vista
 ax.set_xlabel(r'$\gamma$ (Costo)', fontsize=12)
@@ -290,7 +284,7 @@ plt.show()
 """)
 
 # --- Discrepancy explanation cell ---
-add_md("""
+add_md(r"""
 ## 🔍 Nota sulla Discrepanza dei Punti Rispetto alla Superficie Visiva
 
 Nel grafico 3D, potresti notare che la linea ciano o la stella rossa dell'ottimo si collocano leggermente al di sotto o fluttuano in modo non perfettamente allineato rispetto alla superficie colorata disegnata. Questo fenomeno non è un errore, ma è dovuto a precisi motivi fisici e algoritmici:
