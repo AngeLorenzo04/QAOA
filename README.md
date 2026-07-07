@@ -50,37 +50,61 @@ pip install -r requirements.txt
 
 Librerie principali: `pennylane`, `qiskit`, `pulp`, `networkx`, `matplotlib`, `rich`, `scipy`, `tqdm`.
 
-## 💻 Come Eseguire
+## 💻 Come Eseguire e Comandi del Progetto
 
-Tutti i comandi devono essere eseguiti dalla root del progetto.
+Tutti i comandi devono essere eseguiti dalla directory root del progetto. Di seguito è riportata la lista completa dei comandi disponibili, con una breve spiegazione del loro scopo e i link alle rispettive guide teorico-matematiche:
 
-### Demo Max-Cut
-Risolve il problema del taglio massimo (2 partizioni) su grafi selezionabili dall'utente.
-```bash
-export PYTHONPATH=$PYTHONPATH:$(pwd)/src
-python src/max_cut/main.py
-```
+### 1. Demo Max-Cut (Pennylane)
+Risolve interattivamente il problema del taglio massimo (a 2 partizioni) su un grafo a scelta dell'utente utilizzando Pennylane.
+* **Comando**:
+  ```bash
+  export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+  python src/max_cut/main.py
+  ```
+* **Documentazione Matematica & Grafici**: Vedere [src/max_cut/main.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/max_cut/main.md).
 
-### Demo Max-k-Cut
-Risolve il problema del k-taglio massimo utilizzando un metodo di penalità per i vincoli.
-```bash
-export PYTHONPATH=$PYTHONPATH:$(pwd)/src
-python src/max_k_cut/main.py
-```
+### 2. Demo Max-k-Cut (Pennylane)
+Risolve il problema del taglio massimo esteso a $k$ partizioni tramite one-hot encoding e penalizzazione dei vincoli.
+* **Comando**:
+  ```bash
+  export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+  python src/max_k_cut/main.py
+  ```
+* **Documentazione Matematica & Grafici**: Vedere [src/max_k_cut/main.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/max_k_cut/main.md).
 
-### Benchmarking QAOA (Nuovo)
-Esegue una massiccia simulazione automatizzata per calcolare la precisione dell'algoritmo QAOA su molteplici combinazioni di grafi (dimensione e densità). Sfrutta la libreria `pulp` per trovare le soluzioni matematicamente perfette e calcolare l'Approximation Ratio finale in JSON.
-```bash
-export PYTHONPATH=$PYTHONPATH:$(pwd)
-python -m src.max_cut.execute_benchmarking
-```
+### 3. Pipeline di Benchmarking QAOA (Qiskit)
+Esegue un benchmark completo dell'algoritmo QAOA su un intero dataset di grafi randomizzati, confrontando le prestazioni quantistiche con la soluzione esatta classica calcolata tramite ILP.
+* **Comando**:
+  ```bash
+  export PYTHONPATH=$PYTHONPATH:$(pwd)
+  python -m src.max_cut.execute_benchmarking
+  ```
+* **Documentazione Matematica & Metriche**: Vedere [src/max_cut/execute_benchmarking.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/max_cut/execute_benchmarking.md).
 
-### Visualizzazione dei Grafi di Benchmark (Nuovo)
-Consente all'utente di scegliere in modo interattivo quale grafo usato per il benchmark visualizzare, evidenziando opzionalmente il taglio massimo esatto (Max Cut) precalcolato (o calcolato tramite ILP).
-```bash
-export PYTHONPATH=$PYTHONPATH:$(pwd)
-python visualize_benchmark_graph.py
-```
+### 4. Ispezione Grafi del Benchmark
+Consente di esplorare graficamente e in modo interattivo la partizione esatta calcolata tramite ILP per un qualunque grafo salvato nel dataset di benchmark.
+* **Comando**:
+  ```bash
+  export PYTHONPATH=$PYTHONPATH:$(pwd)
+  python visualize_benchmark_graph.py
+  ```
+* **Documentazione Grafica**: Vedere [visualize_benchmark_graph.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/visualize_benchmark_graph.md).
+
+### 5. Analisi Grafica e Statistica del Benchmark
+Estrae i dati JSON generati dal benchmark e traccia l'andamento del rapporto di approssimazione (Approximation Ratio) al variare dei nodi, del parametro $p$ e della densità degli archi.
+* **Comando**:
+  ```bash
+  python visualize_results.py
+  ```
+* **Documentazione Grafica**: Vedere [visualize_results.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/visualize_results.md).
+
+### 6. Visualizzazione 3D Traiettoria Gradient Descent (GD)
+Calcola e renderizza in una finestra GUI 3D interattiva il panorama continuo di costo $-\langle C(\gamma, \beta) \rangle$ e mostra il percorso intrapreso dall'ottimizzatore personalizzato a discesa di gradiente.
+* **Comando**:
+  ```bash
+  python -m src.visualization.plot_gradient_descent
+  ```
+* **Documentazione Matematica & Discrepanza Superficie**: Vedere [src/visualization/plot_gradient_descent.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/visualization/plot_gradient_descent.md).
 
 ## 🧠 Descrizione Algoritmi
 
