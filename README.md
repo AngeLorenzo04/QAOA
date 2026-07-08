@@ -90,10 +90,19 @@ Risolve il problema del taglio massimo esteso a $k$ partizioni tramite one-hot e
 
 ### 3. Pipeline di Benchmarking QAOA (Qiskit)
 Esegue un benchmark completo dell'algoritmo QAOA su un intero dataset di grafi randomizzati, confrontando le prestazioni quantistiche con la soluzione esatta classica calcolata tramite ILP.
-* **Comando**:
+* **Comandi Base e Opzioni**:
+  Lo script supporta l'esecuzione separata delle fasi e la scelta dinamica dell'algoritmo di ottimizzazione tramite flag da riga di comando:
   ```bash
   export PYTHONPATH=$PYTHONPATH:$(pwd)
+  
+  # 1. Esegui l'intera pipeline (Default)
   python -m src.qaoa.execute_benchmarking
+  
+  # 2. Esegui solo il setup matematico (generazione grafi e calcolo esatto via ILP)
+  python -m src.qaoa.execute_benchmarking --setup-only
+  
+  # 3. Esegui solo QAOA su grafi preesistenti, scegliendo gli algoritmi (es. COBYLA e GD)
+  python -m src.qaoa.execute_benchmarking --qaoa-only --optimizers COBYLA GD
   ```
 * **Documentazione Matematica & Metriche**: Vedere [src/qaoa/execute_benchmarking.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/qaoa/execute_benchmarking.md).
 

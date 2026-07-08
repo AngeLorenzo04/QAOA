@@ -43,3 +43,18 @@ Lo script esegue il QAOA su diversi grafi salvando un file JSON riassuntivo in `
 * Soluzione quantistica (taglio atteso finale, miglior bitstring misurata).
 * Metriche di convergenza (storia del costo, tempo impiegato, numero di valutazioni).
 * Approximation Ratio calcolato.
+
+---
+
+## 🛠️ Utilizzo da Riga di Comando
+
+Lo script di benchmarking supporta diverse opzioni per agevolare i test iterativi e il confronto tra algoritmi, richiamabili direttamente da riga di comando:
+
+* `--setup-only`: Esegue esclusivamente la fase di generazione del dataset e risoluzione tramite ILP, salvando i risultati esatti senza far partire il processo quantistico QAOA.
+* `--qaoa-only`: Salta la generazione dei grafi e carica i dati preesistenti, passando direttamente all'esecuzione delle primitive Qiskit. Ottimo se i grafi di test sono già stati pre-calcolati.
+* `--optimizers [ALG1] [ALG2] ...`: Sovrascrive la lista di algoritmi classici utilizzati. Si possono inserire uno o più algoritmi (es. `COBYLA`, `GD`, `SLSQP`) che verranno eseguiti in sequenza per agevolarne il confronto.
+
+**Esempio di utilizzo:**
+```bash
+python -m src.qaoa.execute_benchmarking --qaoa-only --optimizers COBYLA GD
+```

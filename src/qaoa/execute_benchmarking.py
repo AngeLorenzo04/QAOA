@@ -1,5 +1,6 @@
 import os
 import json
+import argparse
 import networkx as nx
 from typing import Dict, Any, List # Added List to imports
 
@@ -18,6 +19,7 @@ BENCHMARK_RESULTS_DIR = "data/benchmarking_results"
 P_VALUES: List[int] = [1, 2, 3] # Number of QAOA layers
 MIXERS: List[str] = ["standard"] # Currently only "standard" is implemented
 ENCODINGS: List[str] = ["binary"] # Currently only "binary" is implemented
+OPTIMIZERS: List[str] = ["COBYLA"] # Available options: "COBYLA", "SLSQP", "GD"
 
 def execute_benchmarking_setup():
     """
@@ -81,7 +83,7 @@ def execute_benchmarking_setup():
         
     print("\n--- Benchmarking Setup Complete ---")
 
-def run_qaoa_benchmarking():
+def run_qaoa_benchmarking(optimizers_list: List[str] = None):
     """
     Executes the QAOA benchmarking phase:
     1. Loads generated graphs and their exact MaxCut solutions.
@@ -89,6 +91,7 @@ def run_qaoa_benchmarking():
     3. Collects and saves various QAOA performance metrics.
     """
     print("\n--- Starting QAOA Benchmarking ---")
+    active_optimizers = optimizers_list if optimizers_list is not None else OPTIMIZERS
     
     # 1. Load Graphs and their Exact MaxCut Solutions
     all_graphs_info = load_graphs(GRAPH_OUTPUT_DIR)
@@ -126,61 +129,64 @@ def run_qaoa_benchmarking():
         for p_val in P_VALUES:
             for mixer_type in MIXERS:
                 for encoding_type in ENCODINGS:
-                    print(f"  Config: p={p_val}, mixer={mixer_type}, encoding={encoding_type}")
-
-                    # Instantiate QAOA Runner
-                    runner = QAOARunner(
-                        graph=graph,
-                        p_value=p_val,
-                        mixer_type=mixer_type,
-                        encoding_type=encoding_type
-                    )
-
-                    # Run QAOA and get results
-                    qaoa_run_results = runner.run(
-                        max_optimization_iterations=100,
-                        shots=1024,
-                        epsilon=1e-5,
-                        timeout=180.0
-                    )
-                    
-                    # Calculate approximation ratio
-                    qaoa_cut_value = qaoa_run_results['best_measured_cut_value']
-                    approximation_ratio = qaoa_cut_value / exact_max_cut_value if exact_max_cut_value > 0 else 0
-
-                    qaoa_result_entry = {
-                        'graph_metadata': {
-                            'n_vertices': graph_info['n_vertices'],
-                            'density_edges': graph_info['density_edges'],
-                            'seed': graph_info['seed'],
-                            'id': graph_info['id'],
-                        },
-                        'exact_max_cut_value': exact_max_cut_value,
-                        'qaoa_config': {
-                            'p_value': p_val,
-                            'mixer': mixer_type,
-                            'encoding': encoding_type
-                        },
-                        'qaoa_results': {
-                            'optimal_params': qaoa_run_results['optimal_params'],
-                            'qaoa_expected_cut_value': qaoa_run_results['qaoa_expected_cut_value'],
-                            'best_measured_cut_value': qaoa_run_results['best_measured_cut_value'],
-                            'best_measured_bitstring': qaoa_run_results['best_measured_bitstring'],
-                            # 'quasi_distribution': qaoa_run_results['quasi_distribution'] # Can be large, consider if needed
-                        },
-                        'metrics': {
-                            'qaoa_cut_value': qaoa_cut_value,
-                            'approximation_ratio': approximation_ratio,
-                            'circuit_depth': qaoa_run_results['metrics']['circuit_depth'],
-                            'num_parameters': qaoa_run_results['metrics']['num_parameters'],
-                            'optimization_iterations': qaoa_run_results['metrics']['optimization_iterations'],
-                            'termination_reason': qaoa_run_results['metrics'].get('termination_reason', 'optimizer_completed'),
-                            'optimization_history': qaoa_run_results['metrics']['optimization_history'], # Add optimization history
-                            'total_shots': qaoa_run_results['metrics']['total_shots']
+                    for optimizer_method in active_optimizers:
+                        print(f"  Config: p={p_val}, mixer={mixer_type}, encoding={encoding_type}, optimizer={optimizer_method}")
+    
+                        # Instantiate QAOA Runner
+                        runner = QAOARunner(
+                            graph=graph,
+                            p_value=p_val,
+                            mixer_type=mixer_type,
+                            encoding_type=encoding_type
+                        )
+    
+                        # Run QAOA and get results
+                        qaoa_run_results = runner.run(
+                            max_optimization_iterations=100,
+                            optimizer_method=optimizer_method,
+                            shots=1024,
+                            epsilon=1e-5,
+                            timeout=180.0
+                        )
+                        
+                        # Calculate approximation ratio
+                        qaoa_cut_value = qaoa_run_results['best_measured_cut_value']
+                        approximation_ratio = qaoa_cut_value / exact_max_cut_value if exact_max_cut_value > 0 else 0
+    
+                        qaoa_result_entry = {
+                            'graph_metadata': {
+                                'n_vertices': graph_info['n_vertices'],
+                                'density_edges': graph_info['density_edges'],
+                                'seed': graph_info['seed'],
+                                'id': graph_info['id'],
+                            },
+                            'exact_max_cut_value': exact_max_cut_value,
+                            'qaoa_config': {
+                                'p_value': p_val,
+                                'mixer': mixer_type,
+                                'encoding': encoding_type,
+                                'optimizer': optimizer_method
+                            },
+                            'qaoa_results': {
+                                'optimal_params': qaoa_run_results['optimal_params'],
+                                'qaoa_expected_cut_value': qaoa_run_results['qaoa_expected_cut_value'],
+                                'best_measured_cut_value': qaoa_run_results['best_measured_cut_value'],
+                                'best_measured_bitstring': qaoa_run_results['best_measured_bitstring'],
+                                # 'quasi_distribution': qaoa_run_results['quasi_distribution'] # Can be large, consider if needed
+                            },
+                            'metrics': {
+                                'qaoa_cut_value': qaoa_cut_value,
+                                'approximation_ratio': approximation_ratio,
+                                'circuit_depth': qaoa_run_results['metrics']['circuit_depth'],
+                                'num_parameters': qaoa_run_results['metrics']['num_parameters'],
+                                'optimization_iterations': qaoa_run_results['metrics']['optimization_iterations'],
+                                'termination_reason': qaoa_run_results['metrics'].get('termination_reason', 'optimizer_completed'),
+                                'optimization_history': qaoa_run_results['metrics']['optimization_history'], # Add optimization history
+                                'total_shots': qaoa_run_results['metrics']['total_shots']
+                            }
                         }
-                    }
-                    qaoa_results.append(qaoa_result_entry)
-                    print(f"  QAOA run complete. Best cut: {qaoa_cut_value}, Approx Ratio: {approximation_ratio:.4f}")
+                        qaoa_results.append(qaoa_result_entry)
+                        print(f"  QAOA run complete. Best cut: {qaoa_cut_value}, Approx Ratio: {approximation_ratio:.4f}")
     
     # --- Save QAOA Benchmarking Results ---
     qaoa_output_filepath = os.path.join(BENCHMARK_RESULTS_DIR, "qaoa_benchmarking_summary.json")
@@ -193,5 +199,16 @@ def run_qaoa_benchmarking():
 
 
 if __name__ == "__main__":
-    execute_benchmarking_setup()
-    run_qaoa_benchmarking() # Call the new QAOA benchmarking function
+    parser = argparse.ArgumentParser(description="Run QAOA Benchmarking Pipeline")
+    parser.add_argument('--setup-only', action='store_true', help="Run only the mathematical calculation (graph generation and ILP exact MaxCut)")
+    parser.add_argument('--qaoa-only', action='store_true', help="Run only the quantum calculation (QAOA benchmarking)")
+    parser.add_argument('--optimizers', nargs='+', type=str, help="List of optimizers to use (e.g. COBYLA SLSQP GD). Overrides the default in the script.")
+    args = parser.parse_args()
+
+    if args.setup_only:
+        execute_benchmarking_setup()
+    elif args.qaoa_only:
+        run_qaoa_benchmarking(args.optimizers)
+    else:
+        execute_benchmarking_setup()
+        run_qaoa_benchmarking(args.optimizers)
