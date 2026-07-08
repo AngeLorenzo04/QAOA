@@ -2,8 +2,8 @@ import json
 import os
 import sys
 
-# Aggiunge src al path per importare plotter.py
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+# Aggiunge la root del progetto al path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.visualization.plotter import plot_approximation_ratio_vs_params, plot_optimizer_convergence, plot_probability_distribution
 
