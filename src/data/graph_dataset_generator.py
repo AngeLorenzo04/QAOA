@@ -40,7 +40,7 @@ def generate_and_save_graphs(
                     graph.graph['exact_max_cut_value'] = exact_maxcut_result['max_cut_value']
                     graph.graph['exact_max_cut_partitions'] = exact_maxcut_result['max_cut_partitions']
 
-                    filename = f"graph_n{n_vertices}_d{density:.2f}_id{i}_seed{seed}.gpickle"
+                    filename = f"graph_n{n_vertices}_d{density:.2f}_id{i}.gpickle"
                     filepath = os.path.join(output_dir, filename)
                     
                     with open(filepath, 'wb') as f:
@@ -88,10 +88,9 @@ def load_graphs(
                         n_v = graph.graph.get('n_vertices')
                         dens = graph.graph.get('density_edges')
                         s_id = graph.graph.get('id')
-                        seed = graph.graph.get('seed')
-                        if n_v is not None and dens is not None and s_id is not None and seed is not None:
+                        if n_v is not None and dens is not None and s_id is not None:
                             parent_dir = os.path.dirname(input_dir)
-                            ilp_file = os.path.join(parent_dir, "benchmarking_results", f"maxcut_ilp_n{n_v}_d{dens:.2f}_id{s_id}_seed{seed}.json")
+                            ilp_file = os.path.join(parent_dir, "benchmarking_results", f"maxcut_ilp_n{n_v}_d{dens:.2f}_id{s_id}.json")
                             if os.path.exists(ilp_file):
                                 os.remove(ilp_file)
                                 print(f"  Deleted associated ILP result file: {os.path.basename(ilp_file)}")

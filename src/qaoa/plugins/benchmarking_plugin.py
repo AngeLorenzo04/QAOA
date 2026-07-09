@@ -97,7 +97,7 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                 
                 result_filepath = os.path.join(
                     BENCHMARK_RESULTS_DIR,
-                    f"maxcut_ilp_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}_seed{g_info['seed']}.json"
+                    f"maxcut_ilp_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}.json"
                 )
                 
                 full_result = {
@@ -106,7 +106,7 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                         'density_edges': g_info['density_edges'],
                         'seed': g_info['seed'],
                         'id': g_info['id'],
-                        'graph_filepath': os.path.join(GRAPH_OUTPUT_DIR, f"graph_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}_seed{g_info['seed']}.gpickle")
+                        'graph_filepath': os.path.join(GRAPH_OUTPUT_DIR, f"graph_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}.gpickle")
                     },
                     'exact_maxcut': maxcut_results
                 }
@@ -138,7 +138,7 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                 if exact_max_cut_value == -1:
                     ilp_result_filepath = os.path.join(
                         BENCHMARK_RESULTS_DIR,
-                        f"maxcut_ilp_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}_seed{g_info['seed']}.json"
+                        f"maxcut_ilp_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}.json"
                     )
                     if os.path.exists(ilp_result_filepath):
                         with open(ilp_result_filepath, 'r') as f:
@@ -192,7 +192,7 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                                     'density_edges': g_info['density_edges'],
                                     'seed': g_info['seed'],
                                     'id': g_info['id'],
-                                    'filepath': os.path.join(GRAPH_OUTPUT_DIR, f"graph_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}_seed{g_info['seed']}.gpickle")
+                                    'filepath': os.path.join(GRAPH_OUTPUT_DIR, f"graph_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}.gpickle")
                                 },
                                 'exact_max_cut_value': exact_max_cut_value,
                                 'qaoa_config': {

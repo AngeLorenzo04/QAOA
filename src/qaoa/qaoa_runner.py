@@ -14,6 +14,11 @@ class QAOARunner:
     with a given configuration.
     """
     def __init__(self, graph: nx.Graph, p_value: int, mixer_type: str = "standard", encoding_type: str = "binary"):
+        # Validate that the graph is valid (no isolated nodes)
+        from src.common.graphs import is_valid_graph
+        if not is_valid_graph(graph):
+            raise ValueError("Il grafo fornito non è valido: ogni nodo deve essere connesso ad almeno un altro nodo (nessun nodo isolato).")
+
         self.graph = graph
         self.p_value = p_value
         self.mixer_type = mixer_type # Currently only "standard" is supported
