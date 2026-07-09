@@ -5,7 +5,8 @@ import sys
 # Aggiunge la root del progetto al path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.visualization.plotter import plot_approximation_ratio_vs_params, plot_optimizer_convergence, plot_probability_distribution
+import pickle
+from src.visualization.plotter import plot_approximation_ratio_vs_params, plot_optimizer_convergence, plot_probability_distribution, plot_graph_with_cut
 
 try:
     from rich.console import Console
@@ -81,14 +82,15 @@ def handle_specific_graph_menu(data):
             
             console.print("\n1. [bold yellow]Convergenza dell'Ottimizzatore[/bold yellow] (Traccia del costo)")
             console.print("2. [bold yellow]Distribuzione di Probabilità[/bold yellow] (Stati misurati)")
-            console.print("3. [bold red]Scegli un altro grafo (Torna Indietro)[/bold red]")
-            console.print("4. [bold red]Torna al Menu Principale[/bold red]")
+            console.print("3. [bold yellow]Visualizza il Grafo (NetworkX)[/bold yellow] (Rete e Max Cut trovato da QAOA)")
+            console.print("4. [bold red]Scegli un altro grafo (Torna Indietro)[/bold red]")
+            console.print("5. [bold red]Torna al Menu Principale[/bold red]")
             
-            plot_choice = ask_choice("\nQuale grafico vuoi generare?", choices=["1", "2", "3", "4"], default="1")
+            plot_choice = ask_choice("\nQuale grafico vuoi generare?", choices=["1", "2", "3", "4", "5"], default="1")
 
-            if plot_choice == "3":
+            if plot_choice == "4":
                 break # Esce da questo while, tornando alla selezione del grafo
-            elif plot_choice == "4":
+            elif plot_choice == "5":
                 return # Esce dalla funzione handle_specific_graph_menu, tornando al main()
 
             if plot_choice == "1":
@@ -110,6 +112,31 @@ def handle_specific_graph_menu(data):
                 else:
                     console.print("\n[bold red]Attenzione:[/bold red] I dati 'quasi_distribution' non sono stati salvati nel JSON.")
                     console.print("Esegui nuovamente il benchmark per visualizzarlo.")
+            elif plot_choice == "3":
+                seed = sample_result['graph_metadata']['seed']
+                graph_filepath = f"data/generated_graphs/graph_n{n}_d{d:.2f}_id{gid}_seed{seed}.gpickle"
+                
+                if not os.path.exists(graph_filepath):
+                    console.print(f"\n[bold red]Errore:[/bold red] Impossibile trovare il file del grafo in {graph_filepath}")
+                else:
+                    try:
+                        with open(graph_filepath, 'rb') as pf:
+                            graph = pickle.load(pf)
+                            
+                        best_bitstring = sample_result['qaoa_results'].get('best_measured_bitstring')
+                        partition = None
+                        if best_bitstring:
+                            partition = [int(bit) for bit in best_bitstring]
+                            
+                        console.print(f"\n[cyan]Apertura grafo a schermo (Taglio trovato da QAOA: {best_bitstring})...[/cyan]")
+                        plot_graph_with_cut(
+                            graph, 
+                            partition=partition, 
+                            title=f"Grafo N={n}, D={d:.2f}, ID={gid} - Taglio Migliore QAOA: {best_bitstring}",
+                            filepath=None
+                        )
+                    except Exception as e:
+                        console.print(f"\n[bold red]Errore durante il caricamento/visualizzazione del grafo:[/bold red] {e}")
 
 
 def main():
