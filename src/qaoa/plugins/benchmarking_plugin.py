@@ -12,7 +12,7 @@ from src.data.graph_dataset_generator import generate_and_save_graphs, load_grap
 from src.data.exact_maxcut_solver import find_exact_maxcut, find_exact_maxcut_ilp
 
 # Configuration
-N_VERTICES = [4, 8, 16, 32]
+N_VERTICES = [4, 8, 16]
 DENSITY_EDGES = [0.1, 0.25, 0.5, 0.75]
 NUM_GRAPHS_PER_COMBO = 10
 GRAPH_OUTPUT_DIR = "data/generated_graphs"
