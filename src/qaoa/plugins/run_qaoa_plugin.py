@@ -75,7 +75,8 @@ class RunQAOAPlugin(QAOACommandPlugin):
             num_qubits = graph.number_of_nodes()
             probs = np.zeros(2**num_qubits)
             quasi_dist = qaoa_results['quasi_distribution']
-            for state_int, prob in quasi_dist.items():
+            for bitstring, prob in quasi_dist.items():
+                state_int = int(bitstring, 2)
                 probs[state_int] = prob
                 
             plot_qaoa_dashboard(
