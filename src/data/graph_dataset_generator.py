@@ -123,6 +123,9 @@ def load_graphs(
                     })
             except Exception as e:
                 print(f"Error loading {filename}: {e}")
+                
+    # Sort the graphs by number of vertices, density, and ID to ensure ordered execution
+    loaded_graphs.sort(key=lambda x: (x.get('n_vertices', 0), x.get('density_edges', 0), x.get('id', 0)))
     return loaded_graphs
 
 if __name__ == "__main__":
