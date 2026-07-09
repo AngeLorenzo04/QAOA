@@ -83,35 +83,35 @@ class BenchmarkingPlugin(QAOACommandPlugin):
             console.print(f"Dataset caricato: {len(all_generated_graphs_info)} grafi.")
             
             # 3. Solutore Classico ILP
-            with console.status("[bold green]Calcolo Max-Cut esatto classica (ILP)...[/bold green]"):
-                for g_info in all_generated_graphs_info:
-                    graph: nx.Graph = g_info['graph']
-                    n_nodes = graph.number_of_nodes()
+            console.print("[bold green]Calcolo Max-Cut esatto classica (ILP)...[/bold green]")
+            for g_info in tqdm(all_generated_graphs_info, desc="Classico ILP"):
+                graph: nx.Graph = g_info['graph']
+                n_nodes = graph.number_of_nodes()
+                
+                if 'exact_max_cut_value' in graph.graph and graph.graph['exact_max_cut_value'] != -1:
+                    continue
                     
-                    if 'exact_max_cut_value' in graph.graph and graph.graph['exact_max_cut_value'] != -1:
-                        continue
-                        
-                    maxcut_results = find_exact_maxcut_ilp(graph)
+                maxcut_results = find_exact_maxcut_ilp(graph)
+                
+                result_filepath = os.path.join(
+                    BENCHMARK_RESULTS_DIR,
+                    f"maxcut_ilp_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}_seed{g_info['seed']}.json"
+                )
+                
+                full_result = {
+                    'graph_metadata': {
+                        'n_vertices': g_info['n_vertices'],
+                        'density_edges': g_info['density_edges'],
+                        'seed': g_info['seed'],
+                        'id': g_info['id'],
+                        'graph_filepath': os.path.join(GRAPH_OUTPUT_DIR, f"graph_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}_seed{g_info['seed']}.gpickle")
+                    },
+                    'exact_maxcut': maxcut_results
+                }
+                
+                with open(result_filepath, 'w') as f:
+                    json.dump(full_result, f, indent=4)
                     
-                    result_filepath = os.path.join(
-                        BENCHMARK_RESULTS_DIR,
-                        f"maxcut_ilp_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}_seed{g_info['seed']}.json"
-                    )
-                    
-                    full_result = {
-                        'graph_metadata': {
-                            'n_vertices': g_info['n_vertices'],
-                            'density_edges': g_info['density_edges'],
-                            'seed': g_info['seed'],
-                            'id': g_info['id'],
-                            'graph_filepath': os.path.join(GRAPH_OUTPUT_DIR, f"graph_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}_seed{g_info['seed']}.gpickle")
-                        },
-                        'exact_maxcut': maxcut_results
-                    }
-                    
-                    with open(result_filepath, 'w') as f:
-                        json.dump(full_result, f, indent=4)
-                        
             console.print("[bold green]Fase Classica Completata.[/bold green]")
             
         # --- Fase Quantistica ---

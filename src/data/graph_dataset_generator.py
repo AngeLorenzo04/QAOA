@@ -15,43 +15,38 @@ def generate_and_save_graphs(
 ) -> None:
     """
     Generates a dataset of random graphs and saves them to disk.
-
-    Args:
-        n_vertices_list (List[int]): List of number of vertices to use.
-        density_edges_list (List[float]): List of edge densities (probabilities) to use.
-        num_graphs_per_combo (int): Number of unique graphs to generate for each
-                                    (n_vertices, density) combination, using different seeds.
-        output_dir (str): Directory to save the generated graphs.
     """
+    from tqdm import tqdm
     os.makedirs(output_dir, exist_ok=True)
     print(f"Generating graphs and saving to: {output_dir}")
 
-    for n_vertices in n_vertices_list:
-        for density in density_edges_list:
-            for i in range(num_graphs_per_combo):
-                seed = random.randint(0, 1000000) # Use a large range for seeds
-                graph = create_random_graph(n_nodes=n_vertices, probability=density, seed=seed)
-                assert is_valid_graph(graph), f"Generated graph with N={n_vertices}, D={density:.2f}, seed={seed} is invalid!"
-                
-                
-                # Add metadata to the graph for easy identification
-                graph.graph['n_vertices'] = n_vertices
-                graph.graph['density_edges'] = density
-                graph.graph['seed'] = seed
-                graph.graph['id'] = i # Unique ID for this combination
+    total_graphs = len(n_vertices_list) * len(density_edges_list) * num_graphs_per_combo
+    with tqdm(total=total_graphs, desc="Generazione Grafi") as pbar:
+        for n_vertices in n_vertices_list:
+            for density in density_edges_list:
+                for i in range(num_graphs_per_combo):
+                    seed = random.randint(0, 1000000) # Use a large range for seeds
+                    graph = create_random_graph(n_nodes=n_vertices, probability=density, seed=seed)
+                    assert is_valid_graph(graph), f"Generated graph with N={n_vertices}, D={density:.2f}, seed={seed} is invalid!"
+                    
+                    # Add metadata to the graph for easy identification
+                    graph.graph['n_vertices'] = n_vertices
+                    graph.graph['density_edges'] = density
+                    graph.graph['seed'] = seed
+                    graph.graph['id'] = i # Unique ID for this combination
 
-                # Calculate and store exact MaxCut for benchmarking
-                exact_maxcut_result = find_exact_maxcut(graph)
-                graph.graph['exact_max_cut_value'] = exact_maxcut_result['max_cut_value']
-                # Storing all partitions can be memory intensive, consider storing only one or a summary if needed
-                graph.graph['exact_max_cut_partitions'] = exact_maxcut_result['max_cut_partitions']
+                    # Calculate and store exact MaxCut for benchmarking
+                    exact_maxcut_result = find_exact_maxcut(graph)
+                    graph.graph['exact_max_cut_value'] = exact_maxcut_result['max_cut_value']
+                    graph.graph['exact_max_cut_partitions'] = exact_maxcut_result['max_cut_partitions']
 
-                filename = f"graph_n{n_vertices}_d{density:.2f}_id{i}_seed{seed}.gpickle"
-                filepath = os.path.join(output_dir, filename)
-                
-                with open(filepath, 'wb') as f:
-                    pickle.dump(graph, f)
-                print(f"  Saved {filename}")
+                    filename = f"graph_n{n_vertices}_d{density:.2f}_id{i}_seed{seed}.gpickle"
+                    filepath = os.path.join(output_dir, filename)
+                    
+                    with open(filepath, 'wb') as f:
+                        pickle.dump(graph, f)
+                    
+                    pbar.update(1)
 
 def load_graphs(
     input_dir: str,
