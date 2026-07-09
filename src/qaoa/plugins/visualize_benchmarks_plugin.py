@@ -78,8 +78,9 @@ class VisualizeBenchmarksPlugin(QAOACommandPlugin):
                 # Raggruppiamo per ottimizzatore ed estraiamo l'approximation ratio medio
                 opt_data = collections.defaultdict(list)
                 for entry in qaoa_results:
-                    opt = entry['qaoa_config']['optimizer']
-                    ratio = entry['metrics']['approximation_ratio']
+                    config = entry.get('qaoa_config', {})
+                    opt = config.get('optimizer', config.get('optimizer_method', 'COBYLA'))
+                    ratio = entry.get('metrics', {}).get('approximation_ratio', 0.0)
                     opt_data[opt].append(ratio)
                     
                 plt.figure(figsize=(10, 6))
