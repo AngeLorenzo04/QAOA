@@ -46,7 +46,7 @@ def compute_cut_landscape(graph, ansatz_circuit, sampler, steps=25):
             bound_circuit = ansatz_circuit.assign_parameters(param_dict)
             measured_circuit = bound_circuit.measure_all(inplace=False)
             
-            job = sampler.run(measured_circuit, shots=512)
+            job = sampler.run(measured_circuit, shots=4096)
             quasi_distribution = job.result().quasi_dists[0]
             
             exp_val = 0.0
@@ -66,11 +66,17 @@ def get_top_solutions_at_point(graph, ansatz_circuit, sampler, g, b):
         elif 'beta' in param.name:
             param_dict[param] = b
     bound_circuit = ansatz_circuit.assign_parameters(param_dict)
-    measured_circuit = bound_circuit.measure_all(inplace=False)
-    job = sampler.run(measured_circuit, shots=1024)
-    quasi_distribution = job.result().quasi_dists[0]
-    
     num_qubits = graph.number_of_nodes()
+    
+    if num_qubits <= 12:
+        from qiskit.quantum_info import Statevector
+        sv = Statevector.from_instruction(bound_circuit)
+        quasi_distribution = {i: prob for i, prob in enumerate(sv.probabilities()) if prob > 1e-6}
+    else:
+        measured_circuit = bound_circuit.measure_all(inplace=False)
+        job = sampler.run(measured_circuit, shots=16384)
+        quasi_distribution = job.result().quasi_dists[0]
+    
     sorted_outcomes = sorted(quasi_distribution.items(), key=lambda item: item[1], reverse=True)
     
     max_prob = sorted_outcomes[0][1]
