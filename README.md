@@ -106,6 +106,21 @@ Esegue un benchmark completo dell'algoritmo QAOA su un intero dataset di grafi r
   ```
 * **Documentazione Matematica & Metriche**: Vedere [src/qaoa/execute_benchmarking.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/qaoa/execute_benchmarking.md).
 
+### 3.1 Demo Esecuzione Singola QAOA (Qiskit CLI)
+Consente di eseguire singolarmente l'algoritmo QAOA su un grafo a scelta tra quelli presenti nel dataset di benchmark, con la possibilità di scegliere l'ottimizzatore classico (`COBYLA`, `SLSQP` o `GD`), il numero di layer $p$ e di visualizzare la dashboard finale.
+* **Comandi ed Opzioni**:
+  Lo script può essere eseguito in modalità interattiva (con menu guidato) oppure passando i filtri da riga di comando:
+  ```bash
+  export PYTHONPATH=$PYTHONPATH:$(pwd)
+
+  # Esecuzione interattiva con selezione guidata del grafo e dell'ottimizzatore
+  python src/qaoa/main.py
+
+  # Esecuzione diretta (non-interattiva) specificando grafo, ottimizzatore e layers
+  python src/qaoa/main.py --non-interactive -n 8 -d 0.25 -i 0 --optimizer GD -p 2 --plot
+  ```
+
+
 ### 4. Ispezione Grafi del Benchmark
 Consente di esplorare graficamente e in modo interattivo la partizione esatta calcolata tramite ILP per un qualunque grafo salvato nel dataset di benchmark.
 * **Comando**:
