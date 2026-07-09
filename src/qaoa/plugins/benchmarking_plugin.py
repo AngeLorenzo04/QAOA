@@ -84,9 +84,11 @@ class BenchmarkingPlugin(QAOACommandPlugin):
             
             # 3. Solutore Classico ILP
             console.print("[bold green]Calcolo Max-Cut esatto classica (ILP)...[/bold green]")
-            for g_info in tqdm(all_generated_graphs_info, desc="Classico ILP"):
+            pbar_ilp = tqdm(all_generated_graphs_info, desc="Classico ILP")
+            for g_info in pbar_ilp:
                 graph: nx.Graph = g_info['graph']
                 n_nodes = graph.number_of_nodes()
+                pbar_ilp.set_postfix_str(f"N={g_info['n_vertices']} D={g_info['density_edges']:.2f} ID={g_info['id']}")
                 
                 if 'exact_max_cut_value' in graph.graph and graph.graph['exact_max_cut_value'] != -1:
                     continue
@@ -163,6 +165,8 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                     
                     for p_val in p_layers_to_run:
                         for optimizer_method in active_optimizers:
+                            pbar.set_postfix_str(f"N={n_nodes} D={g_info['density_edges']:.2f} ID={g_info['id']} Opt={optimizer_method} p={p_val}")
+                            
                             runner = QAOARunner(
                                 graph=graph,
                                 p_value=p_val,

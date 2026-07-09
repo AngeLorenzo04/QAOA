@@ -126,9 +126,7 @@ def find_exact_maxcut_ilp(graph: nx.Graph) -> Dict[str, Any]:
     # Solve the problem
     # Using the default solver (usually CBC, which comes with PuLP)
     try:
-        with tqdm(total=1, unit="solve", desc="Solving ILP for Max-Cut") as pbar:
-            prob.solve(pulp.PULP_CBC_CMD(msg=0)) # msg=0 suppresses solver output
-            pbar.update(1) # Mark as complete
+        prob.solve(pulp.PULP_CBC_CMD(msg=0)) # msg=0 suppresses solver output
     except Exception as e:
         print(f"Error during ILP solving: {e}")
         return {

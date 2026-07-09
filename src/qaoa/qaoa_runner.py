@@ -35,7 +35,8 @@ class QAOARunner:
         optimizer_method: str = 'COBYLA',
         tol: Optional[float] = None,
         epsilon: Optional[float] = None,
-        timeout: Optional[float] = None
+        timeout: Optional[float] = None,
+        verbose: bool = False
     ) -> Dict[str, Any]:
         """
         Runs the QAOA optimization and simulation for the configured graph and parameters.
@@ -47,11 +48,13 @@ class QAOARunner:
             tol (Optional[float]): Tolerance for termination passed to SciPy minimize.
             epsilon (Optional[float]): Epsilon convergence threshold for custom early stopping.
             timeout (Optional[float]): Timeout threshold in seconds for early stopping.
+            verbose (bool): Whether to print run details to stdout.
 
         Returns:
             Dict[str, Any]: A dictionary containing QAOA results and metrics.
         """
-        print(f"  Running QAOA for N={self.num_qubits}, p={self.p_value}, mixer={self.mixer_type}, encoding={self.encoding_type} (optimizer={optimizer_method})")
+        if verbose:
+            print(f"  Running QAOA for N={self.num_qubits}, p={self.p_value}, mixer={self.mixer_type}, encoding={self.encoding_type} (optimizer={optimizer_method})")
 
         # 1. Initialize parameters
         # Qiskit parameters are 2*p_value: p gammas and p betas
