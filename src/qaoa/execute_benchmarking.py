@@ -181,6 +181,7 @@ def run_qaoa_benchmarking(optimizers_list: List[str] = None):
                                     'qaoa_expected_cut_value': qaoa_run_results['qaoa_expected_cut_value'],
                                     'best_measured_cut_value': qaoa_run_results['best_measured_cut_value'],
                                     'best_measured_bitstring': qaoa_run_results['best_measured_bitstring'],
+                                    'quasi_distribution': qaoa_run_results['quasi_distribution'],
                                 },
                                 'metrics': {
                                     'qaoa_cut_value': qaoa_cut_value,
