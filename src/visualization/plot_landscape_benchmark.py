@@ -79,7 +79,7 @@ def get_top_solutions_at_point(graph, ansatz_circuit, sampler, g, b):
         if prob >= max_prob * 0.8:
             bitstring = format(state_int, f'0{num_qubits}b')
             top_outcomes.append(bitstring)
-    return "/".join(top_outcomes), sorted_outcomes[0][0]
+    return "/".join(top_outcomes), sorted_outcomes[0][0], sorted_outcomes
 
 def get_canonical_partition(bitstring):
     comp = "".join('1' if c == '0' else '0' for c in bitstring)
@@ -211,7 +211,7 @@ def main():
             continue
             
         labeled_coords.append((g, b))
-        sol_text, sol_int = get_top_solutions_at_point(graph, runner.ansatz_circuit, sampler, g, b)
+        sol_text, sol_int, sorted_outcomes = get_top_solutions_at_point(graph, runner.ansatz_circuit, sampler, g, b)
         
         num_qubits = graph.number_of_nodes()
         bitstring = format(sol_int, f'0{num_qubits}b')
@@ -222,7 +222,8 @@ def main():
             'val': val,
             'sol_text': sol_text,
             'sol_int': sol_int,
-            'canonical': canonical
+            'canonical': canonical,
+            'sorted_outcomes': sorted_outcomes
         }
         all_minima.append(minimum_info)
         
@@ -247,13 +248,20 @@ def main():
         
     import matplotlib.gridspec as gridspec
     
-    # Creazione della figura multi-pannello (riga superiore: plot principale, riga inferiore: legenda visuale)
+    # Creazione della figura multi-pannello (riga superiore: plot principale + istogramma, riga inferiore: legenda visuale)
     num_cols = num_sols if num_sols > 0 else 1
-    fig = plt.figure(figsize=(3 * num_cols + 2, 9.0))
+    fig = plt.figure(figsize=(3 * num_cols + 4, 9.5))
     fig.canvas.manager.set_window_title(f"QAOA Landscape & Solution Partition Images (N={metadata['n_vertices']}, ID={metadata['id']})")
     
-    gs = gridspec.GridSpec(2, num_cols, height_ratios=[1.4, 1.0], hspace=0.55)
-    ax_main = fig.add_subplot(gs[0, :])
+    gs_main = gridspec.GridSpec(2, 1, height_ratios=[1.4, 1.0], hspace=0.6)
+    
+    # Riga 0: suddivisa in 2 colonne (1 per il panorama, 1 per l'istogramma)
+    gs_top = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_main[0], width_ratios=[1.15, 1.0], wspace=0.35)
+    ax_main = fig.add_subplot(gs_top[0, 0])
+    ax_hist = fig.add_subplot(gs_top[0, 1])
+    
+    # Riga 1: suddivisa in num_cols colonne per i grafi di partizione
+    gs_bottom = gridspec.GridSpecFromSubplotSpec(1, num_cols, subplot_spec=gs_main[1], wspace=0.4)
         
     # 1. Plot principale: Densità di energia in 2D
     contour = ax_main.contourf(gamma_grid, beta_grid, -cut_grid, levels=50, cmap='plasma')
@@ -302,9 +310,48 @@ def main():
                    frameon=True, shadow=True, fontsize=9)
     ax_main.set_title(f"Densità di Energia (N={metadata['n_vertices']}, ID={metadata['id']})", fontsize=12, fontweight='bold', pad=15)
     
-    # 2. Plot secondari: Legenda visuale (Immagini della partizione del grafo) posizionati sotto
+    # 2. Istogramma delle probabilità affiancato al grafico principale (per il minimo globale)
+    if num_sols > 0:
+        global_min_key = unique_keys[0]
+        global_min_data = unique_partitions[global_min_key]
+        sorted_outcomes = global_min_data['sorted_outcomes']
+        
+        # Filtriamo le top 10 bitstring per motivi di spazio sull'asse x
+        top_k = min(10, len(sorted_outcomes))
+        x_labels = []
+        y_probs = []
+        for state_int, prob in sorted_outcomes[:top_k]:
+            bitstring = format(state_int, f'0{num_qubits}b')
+            x_labels.append(bitstring)
+            y_probs.append(prob)
+            
+        # Coloriamo ciascuna barra con il colore della corrispondente soluzione nel grafico del panorama
+        colors = []
+        for bs in x_labels:
+            canonical = get_canonical_partition(bs)
+            if canonical in partition_markers:
+                colors.append(partition_markers[canonical][2])  # Es. 'red' per Min Globale, 'gold' per Min Locale 1
+            else:
+                colors.append('#3498db')  # Colore neutro per le altre soluzioni
+        bars = ax_hist.bar(x_labels, y_probs, color=colors, edgecolor='black', width=0.6)
+        
+        # Valori sopra le barre
+        for bar in bars:
+            height = bar.get_height()
+            ax_hist.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                         f"{height:.2f}",
+                         ha='center', va='bottom', fontsize=8, fontweight='bold')
+                         
+        ax_hist.set_xticks(range(len(x_labels)))
+        ax_hist.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=8)
+        ax_hist.set_ylabel('Probabilità', fontsize=11)
+        ax_hist.set_ylim(0, max(y_probs) * 1.15)
+        ax_hist.set_title(f"Istogramma Probabilità al Min Globale (▼)\n(Top {top_k} Stati)", fontsize=11, fontweight='bold', pad=15)
+        ax_hist.grid(axis='y', linestyle=':', alpha=0.6)
+    
+    # 3. Plot secondari: Legenda visuale (Immagini della partizione del grafo) posizionati sotto
     for idx, key in enumerate(unique_keys):
-        ax_sol = fig.add_subplot(gs[1, idx])
+        ax_sol = fig.add_subplot(gs_bottom[0, idx])
         data = unique_partitions[key]
         unicode_char, marker_style, color, name = partition_markers[key]
         
