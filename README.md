@@ -115,8 +115,10 @@ Consente di esplorare graficamente e in modo interattivo la partizione esatta ca
   ```
 * **Documentazione Grafica**: Vedere [scripts/visualize_benchmark_graph.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/scripts/visualize_benchmark_graph.md).
 
-### 5. Analisi Grafica e Statistica del Benchmark
-Estrae i dati JSON generati dal benchmark e traccia l'andamento del rapporto di approssimazione (Approximation Ratio) al variare dei nodi, del parametro $p$ e della densità degli archi.
+### 5. Analisi Grafica, Statistica e Infografiche Specifiche
+Estrae i dati JSON generati dal benchmark. Tramite un **menu interattivo** permette di:
+1. Tracciare i **grafici statistici globali** (Approximation Ratio vs N, p, densità).
+2. Filtrare il dataset (per N, D, p, algoritmo, ID) per esplorare **grafici specifici** di una singola esecuzione (come la traccia di convergenza dell'ottimizzatore o l'istogramma delle probabilità).
 * **Comando**:
   ```bash
   python scripts/visualize_results.py
