@@ -4,15 +4,15 @@ Questo progetto implementa l'algoritmo **Quantum Approximate Optimization Algori
 
 L'implementazione utilizza **PennyLane**, una libreria cross-platform per il calcolo quantistico differenziabile, integrata con **NetworkX** per la gestione dei grafi.
 
-## 🚀 Novità del Refactoring
-Il progetto è stato recentemente refactorizzato per migliorare la modularità e ridurre la duplicazione del codice:
-- **Core Centralizzato**: Tutta la logica di generazione circuiti e visualizzazione è ora in `src/common`.
-- **Dashboard Unificata**: Un unico strumento di plotting per entrambi i problemi.
-- **Interfaccia CLI Migliorata**: Script interattivi più robusti basati sulla libreria `rich`.
+### 🚀 Novità del Refactoring (Architettura Microkernel)
+Il progetto è stato recentemente refactorizzato per adottare un'**Architettura Microkernel a Livelli**:
+- **Microkernel Core (`src/qaoa/core/`)**: Gestisce la CLI interattiva basata su `rich`, il caricamento del dataset di grafi, e la registrazione dinamica dei plugin.
+- **Plugin System (`src/qaoa/plugins/`)**: Tutte le operazioni e analisi (esecuzione QAOA, disegno di panorami energetici, ottimizzazione con Gradient Descent, benchmarking e visualizzazione statistiche) sono implementate come plugin autocontenuti e modularizzabili.
+- **Piattaforma Unificata**: Un'unica interfaccia a riga di comando per selezionare qualsiasi grafo dal dataset e applicarvi qualsiasi azione (plugin) desiderata.
 
 ## 📂 Struttura del Progetto
 
-Il codice è stato esteso introducendo pipeline di **Benchmarking** e passando all'utilizzo di **Qiskit** per l'infrastruttura quantistica più scalabile:
+Il codice è organizzato come segue:
 
 ```text
 QAOA/
@@ -22,7 +22,7 @@ QAOA/
 ├── notebooks/            # Jupyter Notebooks di presentazione e didattica
 │   ├── Presentazione_QAOA.ipynb        # Notebook passo-passo per Google Colab o Jupyter
 │   └── Studio_Gradient_Descent.ipynb   # Notebook focalizzato sullo studio del Gradient Descent
-├── scripts/              # Script di utilità e visualizzazioni globali
+├── scripts/              # Script di utilità e visualizzazioni classiche (in dismissione)
 │   ├── generate_gd_notebook.py         # Generatore statico del notebook di studio del GD
 │   ├── generate_notebook.py            # Generatore statico del notebook di presentazione
 │   ├── test_pulp.py                    # Test di integrità del solutore classico ILP
@@ -37,23 +37,30 @@ QAOA/
 │   ├── data/              # Gestione dataset e soluzioni matematiche esatte
 │   │   ├── exact_maxcut_solver.py    # Risolve il MaxCut in modo esatto via brute-force e ILP
 │   │   └── graph_dataset_generator.py # Genera dataset di grafi randomizzati (.gpickle)
-│   ├── max_cut/           # Modulo Max-Cut (2 partizioni)
+│   ├── max_cut/           # Modulo Max-Cut (2 partizioni in Pennylane)
 │   │   ├── circuit.py     # Definizione del QNode per Max-Cut
 │   │   ├── components.py  # Costruzione Hamiltoniane base (H_cost, H_mixer)
 │   │   └── main.py        # Demo interattiva classica per Max-Cut
-│   ├── max_k_cut/         # Modulo Max-k-Cut (k partizioni)
+│   ├── max_k_cut/         # Modulo Max-k-Cut (k partizioni in Pennylane)
 │   │   ├── circuit.py     # Definizione del QNode (n*k qubit, one-hot encoding)
 │   │   ├── components.py  # Hamiltoniane modificate con metodo di penalità
 │   │   └── main.py        # Demo interattiva classica per Max-k-Cut
 │   ├── qaoa/              # Modulo avanzato di esecuzione QAOA basato su Qiskit Primitives
+│   │   ├── core/          # Microkernel Core per la gestione del sistema
+│   │   │   ├── kernel.py           # Gestore dei plugin, CLI e caricamento dataset
+│   │   │   └── plugin_interface.py # Classe base astratta per tutti i plugin
+│   │   ├── plugins/       # Moduli plugin registrati nel microkernel
+│   │   │   ├── benchmarking_plugin.py         # Benchmark configurabile classico ILP / quantistico QAOA
+│   │   │   ├── plot_gradient_descent_plugin.py # Traiettoria GD 2D/3D sul panorama del costo
+│   │   │   ├── plot_landscape_plugin.py        # Visualizza panorama di costo con label esatte e istogrammi
+│   │   │   ├── run_qaoa_plugin.py              # Esecuzione singola ottimizzazione QAOA + dashboard
+│   │   │   └── visualize_benchmarks_plugin.py  # Menu di visualizzazione e confronto dei benchmark
 │   │   ├── ansatz.py      # Crea il QAOA Ansatz parametrizzato
 │   │   ├── encoding.py    # Strategie per la rappresentazione e codifica quantistica
 │   │   ├── optimizer.py   # Ciclo di ottimizzazione classica (COBYLA/GD)
 │   │   ├── qaoa_runner.py # Esegue una singola configurazione QAOA
-│   │   └── execute_benchmarking.py # Script centrale di QAOA Benchmarking
-│   └── visualization/     # Strumenti di visualizzazione avanzati
-│       ├── plot_gradient_descent.py # Visualizza traiettoria GD 3D sul panorama del costo
-│       └── plotter.py     # Generazione di grafici statistici dai risultati JSON
+│   │   └── main.py        # Entry point unificato che lancia la piattaforma microkernel
+│   └── visualization/     # Visualizzazioni originali (legacy, ora integrate come plugin)
 └── tests/                # Test di unità e di integrazione (pytest)
 ```
 
@@ -68,54 +75,36 @@ Librerie principali: `pennylane`, `qiskit`, `pulp`, `networkx`, `matplotlib`, `r
 
 ## 💻 Come Eseguire e Comandi del Progetto
 
-Tutti i comandi devono essere eseguiti dalla directory root del progetto. Di seguito è riportata la lista completa dei comandi disponibili, con una breve spiegazione del loro scopo e i link alle rispettive guide teorico-matematiche:
+Tutti i comandi devono essere eseguiti dalla directory root del progetto.
 
-### 1. Demo Max-Cut (Pennylane)
-Risolve interattivamente il problema del taglio massimo (a 2 partizioni) su un grafo a scelta dell'utente utilizzando Pennylane.
-* **Comando**:
+### 1. Piattaforma Microkernel QAOA Unificata (Qiskit)
+Questo è il punto di ingresso principale per tutte le funzionalità di QAOA basate su Qiskit. Lanciando questo script, si avvia un'interfaccia interattiva CLI che consente di selezionare un grafo dal dataset e scegliere quale azione eseguire tramite i plugin registrati.
+* **Avvio della Piattaforma**:
+  ```bash
+  export PYTHONPATH=$PYTHONPATH:$(pwd)
+  python src/qaoa/main.py
+  ```
+* **Azioni e Plugin disponibili nel Menu**:
+  1. **Seleziona/Cambia grafo (`s`)**: Permette di filtrare i grafi per numero di nodi $N$, densità $D$, e ID.
+  2. **Esecuzione QAOA Standard (`run_qaoa`)**: Esegue l'ottimizzazione classica (con optimizer `COBYLA`, `SLSQP` o `GD`), mostra il confronto dei tagli atteso/misurato con quello esatto classico (ILP), e mostra la dashboard grafica 1x3 al termine.
+  3. **Visualizzazione Panorama 2D (`plot_landscape`)**: Calcola la mappa energetica 2D con un'analisi esatta Statevector per $N \le 12$ per garantire la simmetria dei bit. Individua e categorizza i minimi locali e globali e visualizza le partizioni associate in una legenda ad immagini.
+  4. **Traiettoria Gradient Descent (`plot_gradient_descent`)**: Esegue la discesa del gradiente quantistica e proietta il percorso dei parametri sui panorami 2D e 3D del costo.
+  5. **Benchmarking Suite (`benchmarking`)**: **[Plugin Globale]** Consente di calcolare i benchmark del dataset scegliendo l'ottimizzatore desiderato, e configurando se calcolare solo la risposta classica ILP, solo la risposta quantistica QAOA, o entrambe.
+  6. **Analisi dei Risultati (`visualize_benchmarks`)**: **[Plugin Globale]** Permette di visualizzare le performance del benchmark selezionando quale grafico di analisi tracciare (Approx Ratio vs N, vs D, vs p, o confronto stochastico degli ottimizzatori).
+
+### 2. Demo classiche in Pennylane (Max-Cut & Max-k-Cut)
+Questi script offrono dimostrazioni classiche interattive su grafi di test predefiniti o personalizzati.
+
+* **Demo Max-Cut**:
   ```bash
   export PYTHONPATH=$PYTHONPATH:$(pwd)/src
   python src/max_cut/main.py
   ```
-* **Documentazione Matematica & Grafici**: Vedere [src/max_cut/main.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/max_cut/main.md).
-
-### 2. Demo Max-k-Cut (Pennylane)
-Risolve il problema del taglio massimo esteso a $k$ partizioni tramite one-hot encoding e penalizzazione dei vincoli.
-* **Comando**:
+* **Demo Max-k-Cut**:
   ```bash
   export PYTHONPATH=$PYTHONPATH:$(pwd)/src
   python src/max_k_cut/main.py
   ```
-* **Documentazione Matematica & Grafici**: Vedere [src/max_k_cut/main.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/max_k_cut/main.md).
-
-### 3. Pipeline di Benchmarking QAOA (Qiskit)
-Esegue un benchmark completo dell'algoritmo QAOA su un intero dataset di grafi randomizzati, confrontando le prestazioni quantistiche con la soluzione esatta classica calcolata tramite ILP.
-* **Comandi Base e Opzioni**:
-  Lo script supporta l'esecuzione separata delle fasi e la scelta dinamica dell'algoritmo di ottimizzazione tramite flag da riga di comando:
-  ```bash
-  export PYTHONPATH=$PYTHONPATH:$(pwd)
-  
-  # 1. Esegui l'intera pipeline (Default)
-  python -m src.qaoa.execute_benchmarking
-  
-  # 2. Esegui solo il setup matematico (generazione grafi e calcolo esatto via ILP)
-  python -m src.qaoa.execute_benchmarking --setup-only
-  
-  # 3. Esegui solo QAOA su grafi preesistenti, scegliendo gli algoritmi (es. COBYLA e GD)
-  python -m src.qaoa.execute_benchmarking --qaoa-only --optimizers COBYLA GD
-  ```
-* **Documentazione Matematica & Metriche**: Vedere [src/qaoa/execute_benchmarking.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/qaoa/execute_benchmarking.md).
-
-### 3.1 Demo Esecuzione Singola QAOA (Qiskit CLI)
-Consente di eseguire singolarmente l'algoritmo QAOA su un grafo a scelta tra quelli presenti nel dataset di benchmark, con la possibilità di scegliere l'ottimizzatore classico (`COBYLA`, `SLSQP` o `GD`), il numero di layer $p$ e di visualizzare la dashboard finale.
-* **Comandi ed Opzioni**:
-  Lo script può essere eseguito in modalità interattiva (con menu guidato) oppure passando i filtri da riga di comando:
-  ```bash
-  export PYTHONPATH=$PYTHONPATH:$(pwd)
-
-  # Esecuzione interattiva con selezione guidata del grafo e dell'ottimizzatore
-  python src/qaoa/main.py
-
   # Esecuzione diretta (non-interattiva) specificando grafo, ottimizzatore e layers
   python src/qaoa/main.py --non-interactive -n 8 -d 0.25 -i 0 --optimizer GD -p 2 --plot
   ```
