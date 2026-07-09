@@ -1,0 +1,319 @@
+import os
+import sys
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+import networkx as nx
+from qiskit.primitives import Sampler
+
+from rich.console import Console
+from rich.prompt import Prompt
+
+# Dynamic imports with fallback
+try:
+    from src.qaoa.qaoa_runner import QAOARunner
+    from src.data.graph_dataset_generator import load_graphs
+    from src.qaoa.optimizer import calculate_maxcut_value
+except ModuleNotFoundError:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+    from src.qaoa.qaoa_runner import QAOARunner
+    from src.data.graph_dataset_generator import load_graphs
+    from src.qaoa.optimizer import calculate_maxcut_value
+
+def compute_cut_landscape(graph, ansatz_circuit, sampler, steps=25):
+    """
+    Computes expected cut values over a grid of gamma and beta values.
+    """
+    gamma_vals = np.linspace(0, 2 * np.pi, steps)
+    beta_vals = np.linspace(0, 2 * np.pi, steps)
+    gamma_grid, beta_grid = np.meshgrid(gamma_vals, beta_vals)
+    cut_grid = np.zeros_like(gamma_grid)
+    
+    num_qubits = graph.number_of_nodes()
+    
+    for i in range(steps):
+        for j in range(steps):
+            g_val = gamma_grid[i, j]
+            b_val = beta_grid[i, j]
+            
+            param_dict = {}
+            for param in ansatz_circuit.parameters:
+                if 'gamma' in param.name:
+                    param_dict[param] = g_val
+                elif 'beta' in param.name:
+                    param_dict[param] = b_val
+                    
+            bound_circuit = ansatz_circuit.assign_parameters(param_dict)
+            measured_circuit = bound_circuit.measure_all(inplace=False)
+            
+            job = sampler.run(measured_circuit, shots=512)
+            quasi_distribution = job.result().quasi_dists[0]
+            
+            exp_val = 0.0
+            for state_int, prob in quasi_distribution.items():
+                bitstring = format(state_int, f'0{num_qubits}b')
+                exp_val += prob * calculate_maxcut_value(graph, bitstring)
+                
+            cut_grid[i, j] = exp_val
+            
+    return gamma_grid, beta_grid, cut_grid
+
+def get_top_solutions_at_point(graph, ansatz_circuit, sampler, g, b):
+    param_dict = {}
+    for param in ansatz_circuit.parameters:
+        if 'gamma' in param.name:
+            param_dict[param] = g
+        elif 'beta' in param.name:
+            param_dict[param] = b
+    bound_circuit = ansatz_circuit.assign_parameters(param_dict)
+    measured_circuit = bound_circuit.measure_all(inplace=False)
+    job = sampler.run(measured_circuit, shots=1024)
+    quasi_distribution = job.result().quasi_dists[0]
+    
+    num_qubits = graph.number_of_nodes()
+    sorted_outcomes = sorted(quasi_distribution.items(), key=lambda item: item[1], reverse=True)
+    
+    max_prob = sorted_outcomes[0][1]
+    top_outcomes = []
+    for state_int, prob in sorted_outcomes:
+        if prob >= max_prob * 0.8:
+            bitstring = format(state_int, f'0{num_qubits}b')
+            top_outcomes.append(bitstring)
+    return "/".join(top_outcomes), sorted_outcomes[0][0]
+
+def get_canonical_partition(bitstring):
+    comp = "".join('1' if c == '0' else '0' for c in bitstring)
+    return min(bitstring, comp)
+
+def draw_graph_partition(ax, graph, bitstring_int, title):
+    num_qubits = graph.number_of_nodes()
+    bitstring = format(bitstring_int, f'0{num_qubits}b')
+    partition = [int(char) for char in bitstring]
+    
+    pos = nx.spring_layout(graph, seed=42)
+    node_colors = ['#1f77b4' if partition[node] == 0 else '#ff7f0e' for node in graph.nodes()]
+    
+    cut_edges = []
+    non_cut_edges = []
+    for u, v in graph.edges():
+        if partition[u] != partition[v]:
+            cut_edges.append((u, v))
+        else:
+            non_cut_edges.append((u, v))
+            
+    # Crea le etichette dei nodi indicando sia l'indice sia il bit (0 o 1) a cui appartiene
+    labels = {node: f"{node}:{partition[node]}" for node in graph.nodes()}
+            
+    nx.draw_networkx_edges(graph, pos, edgelist=non_cut_edges, edge_color='#cccccc', width=2, style='--', ax=ax)
+    nx.draw_networkx_edges(graph, pos, edgelist=cut_edges, edge_color='#2c3e50', width=4, ax=ax)
+    nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_size=600, edgecolors='black', linewidths=1.2, ax=ax)
+    nx.draw_networkx_labels(graph, pos, labels=labels, font_size=8, font_color='white', font_weight='bold', ax=ax)
+    
+    ax.set_title(title, fontsize=10, fontweight='bold', pad=10)
+    ax.axis('off')
+
+def select_graph():
+    console = Console()
+    console.rule("[bold purple]Selezione Grafo dal Benchmark[/bold purple]")
+    
+    graphs_dir = "data/generated_graphs"
+    if not os.path.exists(graphs_dir):
+        console.print("[bold red]Errore: La directory data/generated_graphs non esiste.[/bold red]")
+        sys.exit(1)
+        
+    graphs_list = load_graphs(graphs_dir)
+    if not graphs_list:
+        console.print("[bold red]Errore: Nessun grafo trovato nella directory data/generated_graphs.[/bold red]")
+        sys.exit(1)
+        
+    # Filtriamo i grafi per mostrare di default solo N <= 12 per evitare problemi di memoria e lentezza di calcolo
+    available_n = sorted(list(set(g['n_vertices'] for g in graphs_list if g['n_vertices'] <= 12)))
+    if not available_n:
+        console.print("[bold yellow]Nota: Nessun grafo con N <= 12 trovato, mostro tutti.[/bold yellow]")
+        available_n = sorted(list(set(g['n_vertices'] for g in graphs_list)))
+        
+    n_choices = [str(n) for n in available_n]
+    
+    # Se ci sono anche grafi grandi, diamo la possibilità di sceglierli inserendoli come opzioni
+    all_n = sorted(list(set(g['n_vertices'] for g in graphs_list)))
+    all_n_choices = [str(n) for n in all_n]
+    
+    n_selected = int(Prompt.ask("Seleziona il numero di nodi (N)", choices=all_n_choices, default=n_choices[0]))
+    
+    # Controllo di sicurezza se l'utente forza un valore grande
+    if n_selected >= 16:
+        console.print("[bold red]Attenzione: N >= 16 richiede troppa memoria per la simulazione dello stato quantistico e potrebbe causare un crash (Out of Memory)![/bold red]")
+        proceed = Prompt.ask("Vuoi procedere lo stesso?", choices=["si", "no"], default="no")
+        if proceed.lower() != "si":
+            sys.exit(0)
+            
+    graphs_filtered_n = [g for g in graphs_list if g['n_vertices'] == n_selected]
+    
+    available_d = sorted(list(set(g['density_edges'] for g in graphs_filtered_n)))
+    d_choices = [f"{d:.2f}" for d in available_d]
+    d_selected_str = Prompt.ask("Seleziona la densità degli archi (D)", choices=d_choices, default=d_choices[0])
+    d_selected = float(d_selected_str)
+    
+    graphs_filtered_d = [g for g in graphs_filtered_n if abs(g['density_edges'] - d_selected) < 1e-5]
+    
+    # Rimuoviamo duplicati visivi di ID
+    available_ids = sorted(list(set(g['id'] for g in graphs_filtered_d)))
+    id_choices = [str(i) for i in available_ids]
+    id_selected = int(Prompt.ask("Seleziona l'ID del grafo", choices=id_choices, default=id_choices[0]))
+    
+    selected_entry = next(g for g in graphs_filtered_d if g['id'] == id_selected)
+    return selected_entry['graph'], selected_entry
+
+def main():
+    graph, metadata = select_graph()
+    
+    print("\nInizializzazione QAOA Runner...")
+    runner = QAOARunner(graph, p_value=1)
+    sampler = Sampler()
+    
+    print("Calcolo del panorama 2D della densità di energia (25x25 evaluations)...")
+    gamma_grid, beta_grid, cut_grid = compute_cut_landscape(graph, runner.ansatz_circuit, sampler, steps=25)
+    
+    # Rilevamento delle valli (minimi locali/globali)
+    z_data = -cut_grid
+    h, w = z_data.shape
+    minima_points = []
+    
+    for i in range(1, h-1):
+        for j in range(1, w-1):
+            val = z_data[i, j]
+            neighbors = [
+                z_data[i-1, j-1], z_data[i-1, j], z_data[i-1, j+1],
+                z_data[i, j-1],                   z_data[i, j+1],
+                z_data[i+1, j-1], z_data[i+1, j], z_data[i+1, j+1]
+            ]
+            if val < min(neighbors):
+                minima_points.append((i, j, val))
+                
+    minima_points.sort(key=lambda x: x[2])
+    
+    # Rilevamento delle valli (minimi locali/globali) e associazione alle partizioni fisiche
+    all_minima = []
+    unique_partitions = {}
+    labeled_coords = []
+    
+    for i, j, val in minima_points:
+        g = gamma_grid[i, j]
+        b = beta_grid[i, j]
+        
+        # Evita coordinate troppo vicine per lo stesso punto di minimo (valle singola)
+        too_close = False
+        for lx, ly in labeled_coords:
+            if np.sqrt((g - lx)**2 + (b - ly)**2) < 0.8:
+                too_close = True
+                break
+        if too_close:
+            continue
+            
+        labeled_coords.append((g, b))
+        sol_text, sol_int = get_top_solutions_at_point(graph, runner.ansatz_circuit, sampler, g, b)
+        
+        num_qubits = graph.number_of_nodes()
+        bitstring = format(sol_int, f'0{num_qubits}b')
+        canonical = get_canonical_partition(bitstring)
+        
+        minimum_info = {
+            'coords': (g, b),
+            'val': val,
+            'sol_text': sol_text,
+            'sol_int': sol_int,
+            'canonical': canonical
+        }
+        all_minima.append(minimum_info)
+        
+        # Salviamo la prima occorrenza per ciascuna partizione fisica unica per i subplot
+        if canonical not in unique_partitions:
+            unique_partitions[canonical] = minimum_info
+            
+    # Limitiamo a un massimo di 3 soluzioni per non sovraccaricare il layout dei subplot
+    unique_keys = list(unique_partitions.keys())[:3]
+    num_sols = len(unique_keys)
+    
+    # Assegniamo un marcatore fisso e coerente a ciascuna partizione canonica unica
+    markers_pool = [
+        ('▼', 'v', 'red', 'Min Globale'),
+        ('●', 'o', 'gold', 'Min Locale 1'),
+        ('■', 's', 'green', 'Min Locale 2'),
+        ('◆', 'D', 'magenta', 'Min Locale 3')
+    ]
+    partition_markers = {}
+    for idx, key in enumerate(unique_keys):
+        partition_markers[key] = markers_pool[idx]
+        
+    import matplotlib.gridspec as gridspec
+    
+    # Creazione della figura multi-pannello (riga superiore: plot principale, riga inferiore: legenda visuale)
+    num_cols = num_sols if num_sols > 0 else 1
+    fig = plt.figure(figsize=(3 * num_cols + 2, 9.0))
+    fig.canvas.manager.set_window_title(f"QAOA Landscape & Solution Partition Images (N={metadata['n_vertices']}, ID={metadata['id']})")
+    
+    gs = gridspec.GridSpec(2, num_cols, height_ratios=[1.4, 1.0], hspace=0.55)
+    ax_main = fig.add_subplot(gs[0, :])
+        
+    # 1. Plot principale: Densità di energia in 2D
+    contour = ax_main.contourf(gamma_grid, beta_grid, -cut_grid, levels=50, cmap='plasma')
+    colorbar = fig.colorbar(contour, ax=ax_main, pad=0.05, shrink=0.8)
+    colorbar.set_label('Costo $-\\langle C \\rangle$', fontsize=11)
+    
+    # Plottiamo TUTTI i minimi rilevati sul grafico principale, associando il rispettivo marcatore
+    legend_labels_added = set()
+    for minimum in all_minima:
+        g, b = minimum['coords']
+        val = minimum['val']
+        sol_text = minimum['sol_text']
+        canonical = minimum['canonical']
+        
+        if canonical in partition_markers:
+            unicode_char, marker_style, color, name = partition_markers[canonical]
+        else:
+            unicode_char, marker_style, color, name = ('▲', '^', 'gray', 'Altro Minimo')
+            
+        # Aggiungiamo alla legenda del grafico principale solo il nome del tipo (una sola volta per evitare duplicati)
+        leg_label = f"{unicode_char} {name}"
+        if leg_label not in legend_labels_added:
+            legend_labels_added.add(leg_label)
+            # Usiamo l'etichetta pulita nella legenda
+            ax_main.scatter(g, b, marker=marker_style, color=color, s=90, edgecolors='black', label=leg_label, zorder=10)
+        else:
+            ax_main.scatter(g, b, marker=marker_style, color=color, s=90, edgecolors='black', zorder=10)
+        
+        # Aggiungiamo l'etichetta testuale direttamente sul grafico principale vicino al marcatore
+        ax_main.text(g + 0.12, b + 0.12, sol_text, fontsize=8, fontweight='bold', color='black',
+                     bbox=dict(boxstyle='round,pad=0.15', fc='white', alpha=0.7, ec='gray', lw=0.5),
+                     zorder=11)
+        
+    ax_main.set_xlabel('$\\gamma$ (Costo)', fontsize=11)
+    ax_main.set_ylabel('$\\beta$ (Mixer)', fontsize=11)
+    ax_main.set_xlim(0, 2 * np.pi)
+    ax_main.set_ylim(0, 2 * np.pi)
+    ax_main.set_xticks(np.arange(0, 2 * np.pi + 0.1, np.pi / 2))
+    ax_main.set_xticklabels(['$0$', '$\\pi/2$', '$\\pi$', '$3\\pi/2$', '$2\\pi$'])
+    ax_main.set_yticks(np.arange(0, 2 * np.pi + 0.1, np.pi / 2))
+    ax_main.set_yticklabels(['$0$', '$\\pi/2$', '$\\pi$', '$3\\pi/2$', '$2\\pi$'])
+    ax_main.grid(True, linestyle=':', alpha=0.5)
+    
+    # Posizioniamo la legenda (il rettangolo bianco) sotto il grafico principale
+    ax_main.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=len(legend_labels_added),
+                   frameon=True, shadow=True, fontsize=9)
+    ax_main.set_title(f"Densità di Energia (N={metadata['n_vertices']}, ID={metadata['id']})", fontsize=12, fontweight='bold', pad=15)
+    
+    # 2. Plot secondari: Legenda visuale (Immagini della partizione del grafo) posizionati sotto
+    for idx, key in enumerate(unique_keys):
+        ax_sol = fig.add_subplot(gs[1, idx])
+        data = unique_partitions[key]
+        unicode_char, marker_style, color, name = partition_markers[key]
+        
+        title = f"{unicode_char} {name}\nStato: {data['sol_text']}\nCosto: {data['val']:.2f}"
+        draw_graph_partition(ax_sol, graph, data['sol_int'], title)
+        
+    fig.tight_layout()
+    print("\nVisualizzazione del grafico in corso...")
+    plt.show()
+
+if __name__ == "__main__":
+    main()

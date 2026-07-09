@@ -148,6 +148,14 @@ Calcola e renderizza in una finestra GUI 3D interattiva il panorama continuo di 
   ```
 * **Documentazione Matematica & Discrepanza Superficie**: Vedere [src/visualization/plot_gradient_descent.md](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/visualization/plot_gradient_descent.md).
 
+### 6.1 Studio Panorama Energetico e Legenda Visuale dei Grafi (Benchmark)
+Consente di selezionare interattivamente qualsiasi grafo dal dataset di benchmark, calcolarne il panorama 2D di densità di energia, rilevare i minimi locali e globali e visualizzarli con simboli dedicati. Le corrispondenti partizioni ottime/subottime dei grafi vengono mostrate affiancate come una "legenda ad immagini", mantenendo il grafico principale pulito e privo di testo sovrapposto.
+* **Comando**:
+  ```bash
+  export PYTHONPATH=$PYTHONPATH:$(pwd)
+  python src/visualization/plot_landscape_benchmark.py
+  ```
+
 ## 🧠 Descrizione Algoritmi
 
 ### Max-Cut

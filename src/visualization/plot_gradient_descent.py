@@ -46,6 +46,30 @@ def compute_cut_landscape(graph, ansatz_circuit, sampler, steps=22):
             
     return gamma_grid, beta_grid, cut_grid
 
+def get_top_solutions_at_point(graph, ansatz_circuit, sampler, g, b):
+    param_dict = {}
+    for param in ansatz_circuit.parameters:
+        if 'gamma' in param.name:
+            param_dict[param] = g
+        elif 'beta' in param.name:
+            param_dict[param] = b
+    bound_circuit = ansatz_circuit.assign_parameters(param_dict)
+    measured_circuit = bound_circuit.measure_all(inplace=False)
+    job = sampler.run(measured_circuit, shots=1024)
+    quasi_distribution = job.result().quasi_dists[0]
+    
+    num_qubits = graph.number_of_nodes()
+    sorted_outcomes = sorted(quasi_distribution.items(), key=lambda item: item[1], reverse=True)
+    
+    # Filter states with probability close to the maximum
+    max_prob = sorted_outcomes[0][1]
+    top_outcomes = []
+    for state_int, prob in sorted_outcomes:
+        if prob >= max_prob * 0.8:
+            bitstring = format(state_int, f'0{num_qubits}b')
+            top_outcomes.append(bitstring)
+    return "/".join(top_outcomes)
+
 def plot_gradient_descent_trajectory():
     # 1. Create a simple 4-node cycle graph
     print("Creating a 4-node cycle graph...")
@@ -104,10 +128,10 @@ def plot_gradient_descent_trajectory():
     )
     
     # =========================================================================
-    # WINDOW 1: Graph Partition & Convergence Analysis (2D Plots)
+    # WINDOW 1: Graph Partition, 2D Energy Density Landscape & Convergence Analysis
     # =========================================================================
-    fig1, (ax1, ax3) = plt.subplots(1, 2, figsize=(16, 7))
-    fig1.canvas.manager.set_window_title('QAOA: Graph Solution & Convergence curves')
+    fig1, (ax1, ax2_contour, ax3) = plt.subplots(1, 3, figsize=(23, 7))
+    fig1.canvas.manager.set_window_title('QAOA: Graph Solution, 2D Energy Landscape & Convergence Curves')
     
     # --- PANEL 1: Graph with Cut Visualization ---
     best_bitstring = results['best_measured_bitstring']
@@ -142,6 +166,91 @@ def plot_gradient_descent_trajectory():
     ax1.set_title(f"1. Problem Graph & Max Cut Solution\nBest Partition: {best_bitstring} (Cut Value: {results['best_measured_cut_value']})\n"
                   f"Optimal Parameters: $\\gamma$ = {gammas[-1]:.4f}, $\\beta$ = {betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
     ax1.axis('off')
+    
+    # --- PANEL 2: 2D Energy Density (Contour Plot) with GD Trajectory ---
+    contour = ax2_contour.contourf(gamma_grid, beta_grid, -cut_grid, levels=50, cmap='plasma')
+    colorbar_2d = fig1.colorbar(contour, ax=ax2_contour, pad=0.05, shrink=0.8)
+    colorbar_2d.set_label('Costo $-\\langle C \\rangle$', fontsize=11)
+    
+    # Overlay the gradient descent path
+    ax2_contour.plot(gammas, betas, color='#00ffff', linestyle='-', linewidth=2.5, label='Percorso GD', zorder=10)
+    # Step dots
+    ax2_contour.scatter(gammas, betas, color='white', edgecolor='black', s=25, zorder=11)
+    # Highlight start and end points
+    ax2_contour.scatter(gammas[0], betas[0], color='#2ecc71', marker='o', s=100, edgecolors='black', label='Inizio (Casuale)', zorder=12)
+    ax2_contour.scatter(gammas[-1], betas[-1], color='#e74c3c', marker='*', s=180, edgecolors='black', label='Fine (Ottimo)', zorder=12)
+    
+    # --- Rilevazione e Annotazione delle Valli nel grafico 2D ---
+    z_data = -cut_grid
+    h, w = z_data.shape
+    minima_points = []
+    
+    for i_coord in range(1, h-1):
+        for j_coord in range(1, w-1):
+            val = z_data[i_coord, j_coord]
+            neighbors = [
+                z_data[i_coord-1, j_coord-1], z_data[i_coord-1, j_coord], z_data[i_coord-1, j_coord+1],
+                z_data[i_coord, j_coord-1],                               z_data[i_coord, j_coord+1],
+                z_data[i_coord+1, j_coord-1], z_data[i_coord+1, j_coord], z_data[i_coord+1, j_coord+1]
+            ]
+            if val < min(neighbors):
+                minima_points.append((i_coord, j_coord, val))
+                
+    minima_points.sort(key=lambda x: x[2])
+    
+    legend_labels_added = set()
+    labeled_coords = []
+    for i_coord, j_coord, val in minima_points:
+        g = gamma_grid[i_coord, j_coord]
+        b = beta_grid[i_coord, j_coord]
+        
+        # Evita sovrapposizione di etichette/indicatori
+        too_close = False
+        for lx, ly in labeled_coords:
+            if np.sqrt((g - lx)**2 + (b - ly)**2) < 1.0:
+                too_close = True
+                break
+        if not too_close:
+            labeled_coords.append((g, b))
+            sol = get_top_solutions_at_point(graph, runner.ansatz_circuit, sampler, g, b)
+            
+            # Distinzione tra minimo globale e locale
+            if val < -3.5:
+                marker_style = 'v'
+                marker_color = 'red'
+                marker_size = 70
+                leg_key = f"Min Globale ({sol})"
+            else:
+                marker_style = 'o'
+                marker_color = 'gold'
+                marker_size = 55
+                leg_key = f"Min Locale ({sol})"
+            
+            # Aggiungi alla legenda solo una volta per categoria
+            leg_label = leg_key if leg_key not in legend_labels_added else None
+            if leg_label:
+                legend_labels_added.add(leg_key)
+            
+            # Disegna l'indicatore sulla mappa di calore 2D
+            ax2_contour.scatter(g, b, marker=marker_style, color=marker_color, s=marker_size, 
+                                edgecolors='black', label=leg_label, zorder=13)
+            
+            # Etichetta di testo con la bitstring
+            ax2_contour.text(g + 0.12, b + 0.12, sol, fontsize=7, fontweight='bold', color='black',
+                             bbox=dict(boxstyle='round,pad=0.15', fc='white', alpha=0.7, ec='gray', lw=0.5),
+                             zorder=14)
+    
+    ax2_contour.set_xlabel('$\\gamma$ (Costo)', fontsize=12)
+    ax2_contour.set_ylabel('$\\beta$ (Mixer)', fontsize=12)
+    ax2_contour.set_xlim(0, 2 * np.pi)
+    ax2_contour.set_ylim(0, 2 * np.pi)
+    ax2_contour.set_xticks(np.arange(0, 2 * np.pi + 0.1, np.pi / 2))
+    ax2_contour.set_xticklabels(['$0$', '$\\pi/2$', '$\\pi$', '$3\\pi/2$', '$2\\pi$'])
+    ax2_contour.set_yticks(np.arange(0, 2 * np.pi + 0.1, np.pi / 2))
+    ax2_contour.set_yticklabels(['$0$', '$\\pi/2$', '$\\pi$', '$3\\pi/2$', '$2\\pi$'])
+    ax2_contour.legend(loc='upper right', fontsize=8, frameon=True, facecolor='white', framealpha=0.9, shadow=True)
+    ax2_contour.grid(True, linestyle=':', alpha=0.5)
+    ax2_contour.set_title("2. Densità di Energia e Percorso GD\n(Panorama 2D con traiettoria)", fontsize=13, fontweight='bold', pad=15)
     
     # --- PANEL 3: 1D Parameter and Cost (-Cut) evolution ---
     iterations = np.arange(len(trajectory_cuts))
