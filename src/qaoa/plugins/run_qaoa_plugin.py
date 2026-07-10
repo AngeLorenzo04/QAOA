@@ -10,6 +10,7 @@ from src.qaoa.core.plugin_interface import QAOACommandPlugin
 from src.qaoa.qaoa_runner import QAOARunner
 from src.data.exact_maxcut_solver import find_exact_maxcut, find_exact_maxcut_ilp
 from src.common.plotting import plot_qaoa_dashboard
+from src.qaoa.optimizer import calculate_maxcut_value
 
 class RunQAOAPlugin(QAOACommandPlugin):
     @property
@@ -67,6 +68,15 @@ class RunQAOAPlugin(QAOACommandPlugin):
             f"Motivo Termine: {termination_reason}"
         )
         console.print(Panel(result_text, title="[bold green]Risultati Ottimizzazione[/bold green]", expand=False))
+
+        # Mostra le top 5 configurazioni ordinate per probabilità
+        quasi_dist = qaoa_results['quasi_distribution']
+        sorted_quasi = sorted(quasi_dist.items(), key=lambda x: x[1], reverse=True)
+        console.print("\n[bold cyan]Top 5 configurazioni misurate (ordinate per probabilità):[/bold cyan]")
+        for bs, prob in sorted_quasi[:5]:
+            cut_val = calculate_maxcut_value(graph, bs)
+            console.print(f"  Stringa: [yellow]{bs}[/yellow] | Probabilità: [cyan]{prob:.4f}[/cyan] | Taglio: [green]{cut_val}[/green]")
+        console.print("")
 
         # 5. Visualizzazione Dashboard
         plot_choice = Prompt.ask("Vuoi visualizzare la dashboard grafica dei risultati?", choices=["si", "no"], default="si")

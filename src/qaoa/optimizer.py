@@ -144,10 +144,12 @@ def custom_gradient_descent(
     learning_rate: float = 0.1,
     max_iterations: int = 100,
     tol: float = 1e-5,
-    dx: float = 0.2
+    dx: float = 0.2,
+    method: str = 'adam'
 ) -> Tuple[np.ndarray, float, int, str, List[List[float]]]:
     """
     Custom Gradient Descent optimizer using central finite differences for gradient estimation.
+    Supports 'vanilla' gradient descent, momentum, and 'adam'.
     Uses modulo wrapping to keep parameters within [0, 2*pi] (gamma) and [0, pi] (beta).
     """
     x = np.array(x0, dtype=float).copy()
@@ -161,6 +163,14 @@ def custom_gradient_descent(
     trajectory_params = [x.copy().tolist()]
     num_iterations = 0
     termination_reason = "max_iterations_reached"
+
+    # Momentum / Adam state variables
+    m = np.zeros(n)
+    v_adam = np.zeros(n)
+    v_momentum = np.zeros(n)
+    beta1 = 0.9
+    beta2 = 0.999
+    eps_adam = 1e-8
 
     for i in range(max_iterations):
         num_iterations = i + 1
@@ -186,8 +196,18 @@ def custom_gradient_descent(
             termination_reason = f"converged: gradient norm ({grad_norm:.6f}) < tol ({tol})"
             break
             
-        # Update position
-        x -= learning_rate * grad
+        # Update position using specified method
+        if method.lower() == 'adam':
+            m = beta1 * m + (1 - beta1) * grad
+            v_adam = beta2 * v_adam + (1 - beta2) * (grad ** 2)
+            m_hat = m / (1 - beta1 ** num_iterations)
+            v_hat = v_adam / (1 - beta2 ** num_iterations)
+            x -= learning_rate * m_hat / (np.sqrt(v_hat) + eps_adam)
+        elif method.lower() == 'momentum':
+            v_momentum = 0.9 * v_momentum + learning_rate * grad
+            x -= v_momentum
+        else: # vanilla gradient descent
+            x -= learning_rate * grad
         
         # Keep parameters within periodic boundaries
         x[:p] = np.mod(x[:p], np.pi)     # beta in [0, pi]
@@ -210,7 +230,10 @@ def qaoa_optimizer(
     sampler: Sampler = None,
     tol: Optional[float] = None,
     epsilon: Optional[float] = None,
-    timeout: Optional[float] = None
+    timeout: Optional[float] = None,
+    learning_rate: float = 0.1,
+    dx: float = 0.2,
+    gd_method: str = 'adam'
 ) -> Dict[str, Any]:
     """
     Performs classical optimization to find optimal QAOA parameters.
@@ -226,6 +249,9 @@ def qaoa_optimizer(
         tol (Optional[float]): Tolerance for termination passed to SciPy minimize.
         epsilon (Optional[float]): Epsilon convergence threshold for custom early stopping.
         timeout (Optional[float]): Timeout threshold in seconds for early stopping.
+        learning_rate (float): Learning rate for custom gradient descent.
+        dx (float): Finite difference step size for gradient estimation.
+        gd_method (str): Custom GD variant to run ('vanilla', 'momentum', 'adam').
 
     Returns:
         Dict[str, Any]: A dictionary containing optimization results:
@@ -250,10 +276,11 @@ def qaoa_optimizer(
             optimal_params, optimal_value, num_iterations, termination_reason, trajectory_params = custom_gradient_descent(
                 objective_function,
                 initial_params,
-                learning_rate=0.1,
+                learning_rate=learning_rate,
                 max_iterations=max_iterations,
                 tol=tol if tol is not None else 1e-5,
-                dx=0.2
+                dx=dx,
+                method=gd_method
             )
         else:
             # Perform classical optimization using SciPy minimize

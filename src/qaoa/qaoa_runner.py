@@ -41,7 +41,10 @@ class QAOARunner:
         tol: Optional[float] = None,
         epsilon: Optional[float] = None,
         timeout: Optional[float] = None,
-        verbose: bool = False
+        verbose: bool = False,
+        learning_rate: float = 0.1,
+        dx: float = 0.2,
+        gd_method: str = 'adam'
     ) -> Dict[str, Any]:
         """
         Runs the QAOA optimization and simulation for the configured graph and parameters.
@@ -54,6 +57,9 @@ class QAOARunner:
             epsilon (Optional[float]): Epsilon convergence threshold for custom early stopping.
             timeout (Optional[float]): Timeout threshold in seconds for early stopping.
             verbose (bool): Whether to print run details to stdout.
+            learning_rate (float): Learning rate for custom gradient descent.
+            dx (float): Finite difference step size for gradient estimation.
+            gd_method (str): Custom GD variant to run ('vanilla', 'momentum', 'adam').
 
         Returns:
             Dict[str, Any]: A dictionary containing QAOA results and metrics.
@@ -76,7 +82,10 @@ class QAOARunner:
             max_iterations=max_optimization_iterations,
             tol=tol,
             epsilon=epsilon,
-            timeout=timeout
+            timeout=timeout,
+            learning_rate=learning_rate,
+            dx=dx,
+            gd_method=gd_method
         )
         optimal_params = optimization_results['optimal_params']
         num_optimization_iterations = optimization_results['num_iterations']

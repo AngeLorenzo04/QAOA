@@ -86,11 +86,15 @@ def plot_gradient_descent_trajectory():
     runner = QAOARunner(graph, p_value=1)
     
     # 3. Run QAOA using Custom Gradient Descent ('GD')
-    print("Running QAOA with Custom Gradient Descent ('GD')...")
+    gd_variant = input("Scegli la variante di Gradient Descent (vanilla, momentum, adam) [default: adam]: ").strip().lower()
+    if gd_variant not in ["vanilla", "momentum", "adam"]:
+        gd_variant = "adam"
+    print(f"Running QAOA with Custom Gradient Descent ('GD' - {gd_variant})...")
     results = runner.run(
         max_optimization_iterations=25,
         optimizer_method='GD',
-        tol=1e-4
+        tol=1e-4,
+        gd_method=gd_variant
     )
     
     # Extract clean trajectory params

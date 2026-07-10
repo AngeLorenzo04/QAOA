@@ -101,12 +101,15 @@ class PlotGradientDescentPlugin(QAOACommandPlugin):
         sampler = Sampler()
         
         # 1. Esegui QAOA con Gradient Descent ('GD')
-        console.print("[green]Esecuzione di QAOA con Custom Gradient Descent ('GD')...[/green]")
+        from rich.prompt import Prompt
+        gd_variant = Prompt.ask("Scegli la variante di Gradient Descent", choices=["vanilla", "momentum", "adam"], default="adam")
+        console.print(f"[green]Esecuzione di QAOA con Custom Gradient Descent ('GD' - {gd_variant})...[/green]")
         with console.status("[bold magenta]Ottimizzazione dei parametri in corso...[/bold magenta]"):
             results = runner.run(
                 max_optimization_iterations=25,
                 optimizer_method='GD',
-                tol=1e-4
+                tol=1e-4,
+                gd_method=gd_variant
             )
             
         trajectory_params = np.array(results['metrics']['trajectory_params'])

@@ -37,11 +37,19 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
     
     # --- 2. Probabilities ---
     ax2 = axes[1]
-    ax2.set_title("2. Measurement Probabilities", fontsize=16)
     
-    display_probs = probs
-    display_labels = [format(i, f'0{n_qubits}b') for i in range(2**n_qubits)]
-
+    all_labels = [format(i, f'0{n_qubits}b') for i in range(2**n_qubits)]
+    sorted_pairs = sorted(zip(all_labels, probs), key=lambda x: x[1], reverse=True)
+    
+    if len(sorted_pairs) > 16:
+        display_pairs = sorted_pairs[:16]
+        ax2.set_title("2. Measurement Probabilities (Top 16)", fontsize=16)
+    else:
+        display_pairs = sorted_pairs
+        ax2.set_title("2. Measurement Probabilities (Sorted)", fontsize=16)
+        
+    display_labels = [x[0] for x in display_pairs]
+    display_probs = [x[1] for x in display_pairs]
     
     colors = ['tab:blue' if label == best_bitstring else 'lightgray' for label in display_labels]
     ax2.bar(display_labels, display_probs, color=colors)
