@@ -22,6 +22,36 @@ dove $\vec{\theta} = (\beta, \gamma)^T$ e $\eta$ è il learning rate. Visivament
 
 ---
 
+## 📈 Varianti del Gradient Descent Implementate
+
+L'ottimizzatore personalizzato (definito in [optimizer.py](file:///home/angelo/Scrivania/UNI/Tesi/QAOA/src/qaoa/optimizer.py#L141)) calcola numericamente il gradiente a ogni passo tramite **differenze finite centrali** con un intervallo $dx$ (di default pari a $0.2$). Supporta tre diverse varianti per l'aggiornamento dei parametri:
+
+### 1. Vanilla Gradient Descent (`vanilla`)
+Aggiorna i parametri muovendosi unicamente nella direzione opposta al gradiente stimato locale:
+$$\vec{\theta}_{t+1} = \vec{\theta}_t - \eta \nabla f(\vec{\theta}_t)$$
+
+### 2. Momentum Gradient Descent (`momentum`)
+Introduce una componente di "inerzia" per accumulare la velocità dei passi precedenti e superare eventuali plateau o piccoli minimi locali ostici:
+$$\vec{v}_{t+1} = 0.9 \cdot \vec{v}_t + \eta \nabla f(\vec{\theta}_t)$$
+$$\vec{\theta}_{t+1} = \vec{\theta}_t - \vec{v}_{t+1}$$
+
+### 3. Adam (Adaptive Moment Estimation) (`adam`) — *Metodo di Default*
+Regola in modo intelligente e dinamico il passo (learning rate) per ciascun parametro. Può essere compreso intuitivamente tramite due concetti:
+1. **Memoria della direzione (Inerzia)**: Come per il *Momentum*, tiene conto dei passi precedenti per non farsi deviare da improvvise fluttuazioni o rumore.
+2. **Frenata assistita nei tratti instabili**: Controlla quanto le stime del gradiente stanno oscillando per ciascun parametro. Se un parametro oscilla in modo caotico, Adam rimpicciolisce il passo per evitare di superare il minimo; se il percorso è stabile e sicuro, allarga il passo per muoversi più velocemente.
+
+**Perché è perfetto per il QAOA?** 
+I computer quantistici e i simulatori stimano il costo campionando lo stato con un numero finito di misure (shots). Questo introduce un rumore di fondo (*shot noise*) che fa fluttuare i gradienti. Adam, smorzando le oscillazioni e adattando i passi, evita che l'ottimizzatore si perda a causa del rumore.
+
+*Formulazione matematica:*
+$$\vec{m}_t = \beta_1 \vec{m}_{t-1} + (1-\beta_1) \vec{g}_t, \quad \vec{v}_t = \beta_2 \vec{v}_{t-1} + (1-\beta_2) \vec{g}_t^2$$
+Dopo aver corretto il bias ($\hat{m}_t$ e $\hat{v}_t$), i parametri vengono aggiornati come:
+$$\vec{\theta}_{t+1} = \vec{\theta}_t - \frac{\eta}{\sqrt{\hat{v}_t} + \epsilon_{\text{adam}}} \hat{m}_t$$
+
+In tutte e tre le modalità, dopo ogni passo viene applicato un **wrapping periodico** tramite operatore modulo per mantenere i parametri entro i domini fisici significativi di QAOA ($\beta \in [0, \pi]$ e $\gamma \in [0, 2\pi]$).
+
+---
+
 ## 📊 Interpretazione dei Grafici
 
 Lo script genera due finestre grafiche distinte:
