@@ -233,7 +233,8 @@ def qaoa_optimizer(
     timeout: Optional[float] = None,
     learning_rate: float = 0.1,
     dx: float = 0.2,
-    gd_method: str = 'adam'
+    gd_method: str = 'adam',
+    num_starts: int = 1
 ) -> Dict[str, Any]:
     """
     Performs classical optimization to find optimal QAOA parameters.
@@ -252,6 +253,7 @@ def qaoa_optimizer(
         learning_rate (float): Learning rate for custom gradient descent.
         dx (float): Finite difference step size for gradient estimation.
         gd_method (str): Custom GD variant to run ('vanilla', 'momentum', 'adam').
+        num_starts (int): Number of random initial starting points for multi-start GD optimization.
 
     Returns:
         Dict[str, Any]: A dictionary containing optimization results:
@@ -273,15 +275,40 @@ def qaoa_optimizer(
     termination_reason = "optimizer_completed"
     try:
         if optimizer_method.upper() == 'GD':
-            optimal_params, optimal_value, num_iterations, termination_reason, trajectory_params = custom_gradient_descent(
-                objective_function,
-                initial_params,
-                learning_rate=learning_rate,
-                max_iterations=max_iterations,
-                tol=tol if tol is not None else 1e-5,
-                dx=dx,
-                method=gd_method
-            )
+            best_params = None
+            best_value = float('inf')
+            best_num_iterations = 0
+            best_termination_reason = ""
+            best_trajectory_params = []
+            
+            # Genera i punti di partenza (il primo è quello fornito)
+            starts = [initial_params.copy()]
+            p = len(ansatz_circuit.parameters) // 2
+            for _ in range(num_starts - 1):
+                starts.append(np.random.rand(2 * p) * 2 * np.pi)
+                
+            for start_idx, start_p in enumerate(starts):
+                opt_params, opt_value, num_iter, term_reason, traj_params = custom_gradient_descent(
+                    objective_function,
+                    start_p,
+                    learning_rate=learning_rate,
+                    max_iterations=max_iterations,
+                    tol=tol if tol is not None else 1e-5,
+                    dx=dx,
+                    method=gd_method
+                )
+                if opt_value < best_value:
+                    best_value = opt_value
+                    best_params = opt_params
+                    best_num_iterations = num_iter
+                    best_termination_reason = f"[Run {start_idx + 1}] {term_reason}"
+                    best_trajectory_params = traj_params
+            
+            optimal_params = best_params
+            optimal_value = best_value
+            num_iterations = best_num_iterations
+            termination_reason = best_termination_reason
+            trajectory_params = best_trajectory_params
         else:
             # Perform classical optimization using SciPy minimize
             result = minimize(

@@ -44,7 +44,8 @@ class QAOARunner:
         verbose: bool = False,
         learning_rate: float = 0.1,
         dx: float = 0.2,
-        gd_method: str = 'adam'
+        gd_method: str = 'adam',
+        num_starts: int = 1
     ) -> Dict[str, Any]:
         """
         Runs the QAOA optimization and simulation for the configured graph and parameters.
@@ -60,6 +61,7 @@ class QAOARunner:
             learning_rate (float): Learning rate for custom gradient descent.
             dx (float): Finite difference step size for gradient estimation.
             gd_method (str): Custom GD variant to run ('vanilla', 'momentum', 'adam').
+            num_starts (int): Number of random initial starting points for multi-start GD optimization.
 
         Returns:
             Dict[str, Any]: A dictionary containing QAOA results and metrics.
@@ -85,7 +87,8 @@ class QAOARunner:
             timeout=timeout,
             learning_rate=learning_rate,
             dx=dx,
-            gd_method=gd_method
+            gd_method=gd_method,
+            num_starts=num_starts
         )
         optimal_params = optimization_results['optimal_params']
         num_optimization_iterations = optimization_results['num_iterations']
@@ -136,6 +139,7 @@ class QAOARunner:
                 'termination_reason': termination_reason,
                 'optimization_history': optimization_history, # Include optimization history
                 'trajectory_params': trajectory_params, # Include trajectory parameters
+                'all_trajectories': optimization_results.get('all_trajectories', [trajectory_params]), # Include all trajectories for multi-start
                 'total_shots': shots # Assuming shots are constant for sampling
             }
         }

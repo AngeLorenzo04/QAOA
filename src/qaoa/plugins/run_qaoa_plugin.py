@@ -82,6 +82,7 @@ class RunQAOAPlugin(QAOACommandPlugin):
             optimizer = "COBYLA" if opt_choice == "1" else "GD"
             
             gd_variant = "adam"
+            num_starts = 1
             if optimizer == 'GD':
                 # Scelta del tipo di GD in caso di ottimizzatore GD
                 console.print("\n[bold cyan]Scegli la variante di Gradient Descent:[/bold cyan]")
@@ -90,6 +91,8 @@ class RunQAOAPlugin(QAOACommandPlugin):
                 console.print("  [yellow]3[/yellow] - Adam (Default)")
                 var_choice = Prompt.ask("Scegli un'opzione", choices=["1", "2", "3"], default="3")
                 gd_variant = "vanilla" if var_choice == "1" else "momentum" if var_choice == "2" else "adam"
+                
+                num_starts = IntPrompt.ask("Scegli il numero di punti di partenza (Multi-start)", default=3)
             
             shots = IntPrompt.ask("Scegli il numero di shots", default=1024)
             
@@ -105,12 +108,13 @@ class RunQAOAPlugin(QAOACommandPlugin):
                     graph.graph['exact_max_cut_value'] = exact_maxcut_val
             
             # 3. Esegui QAOA
-            with console.status(f"[bold magenta]Esecuzione di QAOA con {optimizer} (GD variant: {gd_variant if optimizer == 'GD' else 'N/A'})...[/bold magenta]"):
+            with console.status(f"[bold magenta]Esecuzione di QAOA con {optimizer} (GD variant: {gd_variant if optimizer == 'GD' else 'N/A'}, starts: {num_starts})...[/bold magenta]"):
                 qaoa_results = runner.run(
                     optimizer_method=optimizer,
                     shots=shots,
                     max_optimization_iterations=100 if optimizer != 'GD' else 25,
-                    gd_method=gd_variant
+                    gd_method=gd_variant,
+                    num_starts=num_starts
                 )
                 
             # 4. Mostra i risultati
@@ -218,41 +222,59 @@ class RunQAOAPlugin(QAOACommandPlugin):
         n_nodes = graph.number_of_nodes()
         sampler = Sampler()
         
-        trajectory_params = np.array(results['metrics']['trajectory_params'])
-        trajectory_params[:, 0] = np.mod(trajectory_params[:, 0], 2 * np.pi)
-        trajectory_params[:, 1] = np.mod(trajectory_params[:, 1], 2 * np.pi)
+        all_trajectories = results['metrics'].get('all_trajectories', [results['metrics']['trajectory_params']])
         
-        trajectory_cuts = []
+        all_trajectory_cuts = []
+        all_betas_list = []
+        all_gammas_list = []
+        
         p_val = runner.p_value
-        with console.status("[bold yellow]Valutazione del costo lungo la traiettoria...[/bold yellow]"):
-            for params in trajectory_params:
-                beta_params = params[:p_val]
-                gamma_params = params[p_val:]
+        with console.status("[bold yellow]Valutazione del costo lungo le traiettorie dei vari start...[/bold yellow]"):
+            for traj in all_trajectories:
+                traj_arr = np.array(traj)
+                # Modulo 2pi per beta e gamma
+                traj_arr[:, 0] = np.mod(traj_arr[:, 0], 2 * np.pi)
+                traj_arr[:, 1] = np.mod(traj_arr[:, 1], 2 * np.pi)
                 
-                param_dict = {}
-                for param in runner.ansatz_circuit.parameters:
-                    name = param.name
-                    if 'beta' in name:
-                        idx = int(name.split('[')[1].split(']')[0])
-                        param_dict[param] = beta_params[idx]
-                    elif 'gamma' in name:
-                        idx = int(name.split('[')[1].split(']')[0])
-                        param_dict[param] = gamma_params[idx]
-                        
-                bound_circuit = runner.ansatz_circuit.assign_parameters(param_dict)
-                measured_circuit = bound_circuit.measure_all(inplace=False)
-                job = sampler.run(measured_circuit, shots=16384)
-                quasi_distribution = job.result().quasi_dists[0]
+                all_betas_list.append(traj_arr[:, 0])
+                all_gammas_list.append(traj_arr[:, 1])
                 
-                exp_val = 0.0
-                for state_int, prob in quasi_distribution.items():
-                    bitstring = format(state_int, f'0{n_nodes}b')
-                    exp_val += prob * calculate_maxcut_value(graph, bitstring)
-                trajectory_cuts.append(exp_val)
+                cuts = []
+                for params in traj_arr:
+                    beta_params = params[:p_val]
+                    gamma_params = params[p_val:]
+                    
+                    param_dict = {}
+                    for param in runner.ansatz_circuit.parameters:
+                        name = param.name
+                        if 'beta' in name:
+                            idx = int(name.split('[')[1].split(']')[0])
+                            param_dict[param] = beta_params[idx]
+                        elif 'gamma' in name:
+                            idx = int(name.split('[')[1].split(']')[0])
+                            param_dict[param] = gamma_params[idx]
+                            
+                    bound_circuit = runner.ansatz_circuit.assign_parameters(param_dict)
+                    measured_circuit = bound_circuit.measure_all(inplace=False)
+                    job = sampler.run(measured_circuit, shots=4096)
+                    quasi_distribution = job.result().quasi_dists[0]
+                    
+                    exp_val = 0.0
+                    for state_int, prob in quasi_distribution.items():
+                        bitstring = format(state_int, f'0{n_nodes}b')
+                        exp_val += prob * calculate_maxcut_value(graph, bitstring)
+                    cuts.append(exp_val)
+                all_trajectory_cuts.append(cuts)
                 
-        betas = trajectory_params[:, 0]
-        gammas = trajectory_params[:, 1]
-        
+        # Trova la traiettoria migliore (quella che raggiunge il costo energetico minimo effettivo alla fine)
+        best_idx = -1
+        min_final_cost = float('inf')
+        for idx, cuts in enumerate(all_trajectory_cuts):
+            final_cost = -cuts[-1]
+            if final_cost < min_final_cost:
+                min_final_cost = final_cost
+                best_idx = idx
+                
         with console.status("[bold cyan]Calcolo del panorama 2D di confronto (22x22 grid)...[/bold cyan]"):
             gamma_grid, beta_grid, cut_grid = compute_cut_landscape(graph, runner.ansatz_circuit, sampler, steps=22)
             
@@ -280,6 +302,9 @@ class RunQAOAPlugin(QAOACommandPlugin):
         nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_size=1000, edgecolors='black', linewidths=1.5, ax=ax1)
         nx.draw_networkx_labels(graph, pos, font_size=14, font_color='white', font_weight='bold', ax=ax1)
         
+        best_gammas = all_gammas_list[best_idx]
+        best_betas = all_betas_list[best_idx]
+        
         legend_elements = [
             Line2D([0], [0], marker='o', color='w', markerfacecolor='#1f77b4', markersize=12, markeredgecolor='black', label='Set A (bit 0)'),
             Line2D([0], [0], marker='o', color='w', markerfacecolor='#ff7f0e', markersize=12, markeredgecolor='black', label='Set B (bit 1)'),
@@ -288,7 +313,7 @@ class RunQAOAPlugin(QAOACommandPlugin):
         ]
         ax1.legend(handles=legend_elements, loc='lower center', fontsize=11, frameon=True, shadow=True)
         ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Costo: {results['best_measured_cut_value']})\n"
-                      f"Parametri Ottimi: $\\gamma$ = {gammas[-1]:.4f}, $\\beta$ = {betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
+                      f"Parametri Ottimi: $\\gamma$ = {best_gammas[-1]:.4f}, $\\beta$ = {best_betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
         ax1.axis('off')
         
         # Panel 2: Heatmap 2D
@@ -296,11 +321,31 @@ class RunQAOAPlugin(QAOACommandPlugin):
         colorbar_2d = fig1.colorbar(contour, ax=ax2_contour, pad=0.05, shrink=0.8)
         colorbar_2d.set_label('Costo $-\\langle C \\rangle$', fontsize=11)
         
-        ax2_contour.plot(gammas, betas, color='#00ffff', linestyle='-', linewidth=2.5, label='Percorso GD', zorder=10)
-        ax2_contour.scatter(gammas, betas, color='white', edgecolor='black', s=25, zorder=11)
-        ax2_contour.scatter(gammas[0], betas[0], color='#2ecc71', marker='o', s=100, edgecolors='black', label='Inizio (Casuale)', zorder=12)
-        ax2_contour.scatter(gammas[-1], betas[-1], color='#e74c3c', marker='*', s=180, edgecolors='black', label='Fine (Ottimo)', zorder=12)
+        # Disegna traiettorie alternative
+        alternative_colors = ['#ff7675', '#a29bfe', '#74b9ff', '#ffeaa7', '#55efc4']
+        alt_color_idx = 0
+        for idx in range(len(all_trajectories)):
+            if idx == best_idx:
+                continue
+            gammas_t = all_gammas_list[idx]
+            betas_t = all_betas_list[idx]
+            color = alternative_colors[alt_color_idx % len(alternative_colors)]
+            alt_color_idx += 1
+            
+            ax2_contour.plot(gammas_t, betas_t, color=color, alpha=0.6, linestyle=':', linewidth=1.5, zorder=8)
+            ax2_contour.scatter(gammas_t[0], betas_t[0], color=color, alpha=0.7, marker='o', s=60, edgecolors='black', zorder=9)
+            ax2_contour.scatter(gammas_t[-1], betas_t[-1], color=color, alpha=0.7, marker='P', s=75, edgecolors='black', zorder=9)
+            ax2_contour.scatter(gammas_t, betas_t, color='white', alpha=0.6, s=10, edgecolors='black', zorder=8)
+            
+        # Disegna la traiettoria migliore
+        ax2_contour.plot(best_gammas, best_betas, color='#00ffff', label='GD (Migliore)', linewidth=3, zorder=10)
+        ax2_contour.scatter(best_gammas, best_betas, color='white', edgecolor='black', s=25, zorder=11)
+        ax2_contour.scatter(best_gammas[0], best_betas[0], color='#2ecc71', marker='o', s=160, edgecolors='black', label='Inizio (Migliore)', zorder=12)
+        ax2_contour.scatter(best_gammas[-1], best_betas[-1], color='#e74c3c', marker='*', s=220, edgecolors='black', label='Fine (Migliore)', zorder=12)
         
+        if len(all_trajectories) > 1:
+            ax2_contour.plot([], [], color='gray', alpha=0.6, linestyle=':', linewidth=1.5, label='GD Alternativi')
+            
         # Valley detection
         z_data = -cut_grid
         h, w = z_data.shape
@@ -361,8 +406,22 @@ class RunQAOAPlugin(QAOACommandPlugin):
         ax2_contour.legend(loc='lower center', bbox_to_anchor=(0.5, -0.28), ncol=2, frameon=True, shadow=True, fontsize=9)
         
         # Panel 3: Convergence
-        iterations = range(len(trajectory_cuts))
-        ax3.plot(iterations, -np.array(trajectory_cuts), color='#e74c3c', marker='o', linestyle='-', linewidth=2, label='Costo Atteso $-\\langle C \\rangle$')
+        alt_color_idx = 0
+        for idx, cuts in enumerate(all_trajectory_cuts):
+            if idx == best_idx:
+                continue
+            iterations_t = range(len(cuts))
+            color = alternative_colors[alt_color_idx % len(alternative_colors)]
+            alt_color_idx += 1
+            ax3.plot(iterations_t, -np.array(cuts), color=color, alpha=0.5, linestyle=':', linewidth=1.5)
+            
+        best_cuts = all_trajectory_cuts[best_idx]
+        best_iterations = range(len(best_cuts))
+        ax3.plot(best_iterations, -np.array(best_cuts), color='#e74c3c', marker='o', linestyle='-', linewidth=2.5, label='Costo Atteso (Migliore)')
+        
+        if len(all_trajectories) > 1:
+            ax3.plot([], [], color='gray', alpha=0.5, linestyle=':', linewidth=1.5, label='GD Alternativi')
+            
         ax3.axhline(y=-results['best_measured_cut_value'], color='black', linestyle='--', linewidth=1.5, label='Miglior Taglio Misurato')
         ax3.set_xlabel('Iterazioni di Gradient Descent', fontsize=12)
         ax3.set_ylabel('Valore del Taglio (Costo)', fontsize=12)
@@ -381,10 +440,25 @@ class RunQAOAPlugin(QAOACommandPlugin):
         ax_3d = fig2.add_subplot(111, projection='3d')
         surf = ax_3d.plot_surface(gamma_grid, beta_grid, -cut_grid, cmap='plasma', alpha=0.8, edgecolor='none', zorder=1)
         
-        # Overlay GD trajectory in 3D
-        ax_3d.plot(gammas, betas, -np.array(trajectory_cuts), color='#00ffff', linewidth=4, label='Traiettoria GD', zorder=10)
-        ax_3d.scatter(gammas[0], betas[0], -trajectory_cuts[0], color='#2ecc71', marker='o', s=120, edgecolors='black', label='Inizio', zorder=11)
-        ax_3d.scatter(gammas[-1], betas[-1], -trajectory_cuts[-1], color='#e74c3c', marker='*', s=250, edgecolors='black', label='Ottimo', zorder=11)
+        # Disegni percorsi alternativi in 3D
+        alt_color_idx = 0
+        for idx, cuts in enumerate(all_trajectory_cuts):
+            if idx == best_idx:
+                continue
+            gammas_t = all_gammas_list[idx]
+            betas_t = all_betas_list[idx]
+            color = alternative_colors[alt_color_idx % len(alternative_colors)]
+            alt_color_idx += 1
+            
+            ax_3d.plot(gammas_t, betas_t, -np.array(cuts), color=color, alpha=0.5, linestyle=':', linewidth=1.5, zorder=8)
+            ax_3d.scatter(gammas_t[0], betas_t[0], -cuts[0], color=color, alpha=0.6, marker='o', s=50, edgecolors='black', zorder=9)
+            ax_3d.scatter(gammas_t[-1], betas_t[-1], -cuts[-1], color=color, alpha=0.6, marker='P', s=60, edgecolors='black', zorder=9)
+            
+        # Disegni percorso migliore in 3D
+        best_cuts = all_trajectory_cuts[best_idx]
+        ax_3d.plot(best_gammas, best_betas, -np.array(best_cuts), color='#00ffff', linewidth=4, label='Traiettoria GD (Migliore)', zorder=10)
+        ax_3d.scatter(best_gammas[0], best_betas[0], -best_cuts[0], color='#2ecc71', marker='o', s=130, edgecolors='black', label='Inizio (Migliore)', zorder=11)
+        ax_3d.scatter(best_gammas[-1], best_betas[-1], -best_cuts[-1], color='#e74c3c', marker='*', s=260, edgecolors='black', label='Ottimo (Migliore)', zorder=11)
         
         ax_3d.set_xlabel('$\\gamma$ (Costo)', fontsize=11, labelpad=10)
         ax_3d.set_ylabel('$\\beta$ (Mixer)', fontsize=11, labelpad=10)
