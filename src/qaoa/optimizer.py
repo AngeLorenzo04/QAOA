@@ -280,6 +280,7 @@ def qaoa_optimizer(
             best_num_iterations = 0
             best_termination_reason = ""
             best_trajectory_params = []
+            all_trajectories = []
             
             # Genera i punti di partenza (il primo è quello fornito)
             starts = [initial_params.copy()]
@@ -297,6 +298,7 @@ def qaoa_optimizer(
                     dx=dx,
                     method=gd_method
                 )
+                all_trajectories.append(traj_params)
                 if opt_value < best_value:
                     best_value = opt_value
                     best_params = opt_params
@@ -335,7 +337,8 @@ def qaoa_optimizer(
         'num_iterations': num_iterations,
         'termination_reason': termination_reason,
         'history': history, # Store the history of all objective function evaluations
-        'trajectory_params': trajectory_params # Store only the main steps of parameters
+        'trajectory_params': trajectory_params, # Store only the main steps of parameters
+        'all_trajectories': all_trajectories if optimizer_method.upper() == 'GD' else [trajectory_params]
     }
 
 if __name__ == '__main__':
