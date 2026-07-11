@@ -219,19 +219,18 @@ class PlotGradientDescentPlugin(QAOACommandPlugin):
                     break
             if not too_close:
                 labeled_coords.append((g, b))
-                sol = get_top_solutions_at_point(graph, runner.ansatz_circuit, sampler, g, b)
                 
                 # Check for global vs local
                 if val < -0.8 * abs(np.min(z_data)):
                     marker_style = 'v'
                     marker_color = 'red'
                     marker_size = 70
-                    leg_key = f"Min Globale ({sol})"
+                    leg_key = "Min Globale"
                 else:
                     marker_style = 'o'
                     marker_color = 'gold'
                     marker_size = 55
-                    leg_key = f"Min Locale ({sol})"
+                    leg_key = "Min Locale"
                 
                 leg_label = leg_key if leg_key not in legend_labels_added else None
                 if leg_label:
@@ -239,9 +238,6 @@ class PlotGradientDescentPlugin(QAOACommandPlugin):
                 
                 ax2_contour.scatter(g, b, marker=marker_style, color=marker_color, s=marker_size, 
                                     edgecolors='black', label=leg_label, zorder=13)
-                ax2_contour.text(g + 0.12, b + 0.12, sol, fontsize=7, fontweight='bold', color='black',
-                                 bbox=dict(boxstyle='round,pad=0.15', fc='white', alpha=0.7, ec='gray', lw=0.5),
-                                 zorder=14)
                                  
         ax2_contour.set_xlabel('$\\gamma$ (Costo)', fontsize=12)
         ax2_contour.set_ylabel('$\\beta$ (Mixer)', fontsize=12)

@@ -30,11 +30,11 @@ class RunQAOAPlugin(QAOACommandPlugin):
         n_edges = graph.number_of_edges()
         
         # 1. Scelta del tipo di analisi (Classica o Quantistica QAOA)
-        analysis_type = Prompt.ask(
-            "Cosa desideri analizzare?",
-            choices=["classico", "qaoa"],
-            default="qaoa"
-        )
+        console.print("\n[bold cyan]Scegli il tipo di analisi da eseguire:[/bold cyan]")
+        console.print("  [yellow]1[/yellow] - Analisi Classica (Risolutore Esatto Max-Cut)")
+        console.print("  [yellow]2[/yellow] - QAOA (Ottimizzazione Quantistica)")
+        analysis_choice = Prompt.ask("Scegli un'opzione", choices=["1", "2"], default="2")
+        analysis_type = "classico" if analysis_choice == "1" else "qaoa"
         
         if analysis_type == "classico":
             # --- ANALISI CLASSICA ---
@@ -75,20 +75,21 @@ class RunQAOAPlugin(QAOACommandPlugin):
         else:
             # --- ANALISI QUANTISTICA QAOA ---
             # 2. Scelta Ottimizzatore (COBYLA o GD)
-            optimizer = Prompt.ask(
-                "Scegli l'ottimizzatore classico",
-                choices=['COBYLA', 'GD'],
-                default='COBYLA'
-            )
+            console.print("\n[bold cyan]Scegli l'ottimizzatore classico:[/bold cyan]")
+            console.print("  [yellow]1[/yellow] - COBYLA")
+            console.print("  [yellow]2[/yellow] - GD (Custom Gradient Descent)")
+            opt_choice = Prompt.ask("Scegli un'opzione", choices=["1", "2"], default="1")
+            optimizer = "COBYLA" if opt_choice == "1" else "GD"
             
             gd_variant = "adam"
             if optimizer == 'GD':
                 # Scelta del tipo di GD in caso di ottimizzatore GD
-                gd_variant = Prompt.ask(
-                    "Scegli la variante di Gradient Descent",
-                    choices=["vanilla", "momentum", "adam"],
-                    default="adam"
-                )
+                console.print("\n[bold cyan]Scegli la variante di Gradient Descent:[/bold cyan]")
+                console.print("  [yellow]1[/yellow] - Vanilla GD")
+                console.print("  [yellow]2[/yellow] - Momentum GD")
+                console.print("  [yellow]3[/yellow] - Adam (Default)")
+                var_choice = Prompt.ask("Scegli un'opzione", choices=["1", "2", "3"], default="3")
+                gd_variant = "vanilla" if var_choice == "1" else "momentum" if var_choice == "2" else "adam"
             
             shots = IntPrompt.ask("Scegli il numero di shots", default=1024)
             
@@ -143,11 +144,18 @@ class RunQAOAPlugin(QAOACommandPlugin):
             
             # 5. Visualizzazione Grafici
             if optimizer == 'GD':
-                plot_choice = Prompt.ask(
-                    "Quale grafico vuoi visualizzare?",
-                    choices=["Dashboard standard 1x3", "Traiettoria GD 2D/3D", "Nessuno"],
-                    default="Dashboard standard 1x3"
-                )
+                console.print("\n[bold cyan]Scegli il grafico da visualizzare:[/bold cyan]")
+                console.print("  [yellow]1[/yellow] - Dashboard standard 1x3")
+                if runner.p_value == 1:
+                    console.print("  [yellow]2[/yellow] - Traiettoria GD 2D/3D")
+                    console.print("  [yellow]3[/yellow] - Nessuno")
+                    plot_choice_num = Prompt.ask("Scegli un'opzione", choices=["1", "2", "3"], default="1")
+                    plot_choice = "Dashboard standard 1x3" if plot_choice_num == "1" else "Traiettoria GD 2D/3D" if plot_choice_num == "2" else "Nessuno"
+                else:
+                    console.print("  [yellow]2[/yellow] - Nessuno")
+                    console.print("[yellow]Nota: La traiettoria GD 2D/3D è visualizzabile solo per p=1 layer quantistico (spazio di ricerca 2D).[/yellow]")
+                    plot_choice_num = Prompt.ask("Scegli un'opzione", choices=["1", "2"], default="1")
+                    plot_choice = "Dashboard standard 1x3" if plot_choice_num == "1" else "Nessuno"
             else:
                 plot_choice_str = Prompt.ask("Vuoi visualizzare la dashboard grafica dei risultati?", choices=["si", "no"], default="si")
                 plot_choice = "Dashboard standard 1x3" if plot_choice_str.lower() in ["si", "s"] else "Nessuno"
@@ -215,14 +223,22 @@ class RunQAOAPlugin(QAOACommandPlugin):
         trajectory_params[:, 1] = np.mod(trajectory_params[:, 1], 2 * np.pi)
         
         trajectory_cuts = []
+        p_val = runner.p_value
         with console.status("[bold yellow]Valutazione del costo lungo la traiettoria...[/bold yellow]"):
             for params in trajectory_params:
+                beta_params = params[:p_val]
+                gamma_params = params[p_val:]
+                
                 param_dict = {}
                 for param in runner.ansatz_circuit.parameters:
-                    if 'beta' in param.name:
-                        param_dict[param] = params[0]
-                    elif 'gamma' in param.name:
-                        param_dict[param] = params[1]
+                    name = param.name
+                    if 'beta' in name:
+                        idx = int(name.split('[')[1].split(']')[0])
+                        param_dict[param] = beta_params[idx]
+                    elif 'gamma' in name:
+                        idx = int(name.split('[')[1].split(']')[0])
+                        param_dict[param] = gamma_params[idx]
+                        
                 bound_circuit = runner.ansatz_circuit.assign_parameters(param_dict)
                 measured_circuit = bound_circuit.measure_all(inplace=False)
                 job = sampler.run(measured_circuit, shots=16384)
@@ -314,19 +330,18 @@ class RunQAOAPlugin(QAOACommandPlugin):
                     break
             if not too_close:
                 labeled_coords.append((g, b))
-                sol = get_top_solutions_at_point(graph, runner.ansatz_circuit, sampler, g, b)
                 
                 # Check for global vs local
                 if val < -0.8 * abs(np.min(z_data)):
                     marker_style = 'v'
                     marker_color = 'red'
                     marker_size = 70
-                    leg_key = f"Min Globale ({sol})"
+                    leg_key = "Min Globale"
                 else:
                     marker_style = 'o'
                     marker_color = 'gold'
                     marker_size = 55
-                    leg_key = f"Min Locale ({sol})"
+                    leg_key = "Min Locale"
                 
                 leg_label = leg_key if leg_key not in legend_labels_added else None
                 if leg_label:
@@ -334,9 +349,6 @@ class RunQAOAPlugin(QAOACommandPlugin):
                 
                 ax2_contour.scatter(g, b, marker=marker_style, color=marker_color, s=marker_size, 
                                     edgecolors='black', label=leg_label, zorder=13)
-                ax2_contour.text(g + 0.12, b + 0.12, sol, fontsize=7, fontweight='bold', color='black',
-                                 bbox=dict(boxstyle='round,pad=0.15', fc='white', alpha=0.7, ec='gray', lw=0.5),
-                                 zorder=14)
                                  
         ax2_contour.set_xlabel('$\\gamma$ (Costo)', fontsize=12)
         ax2_contour.set_ylabel('$\\beta$ (Mixer)', fontsize=12)
