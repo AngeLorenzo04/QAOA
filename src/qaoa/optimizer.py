@@ -157,7 +157,7 @@ def custom_gradient_descent(
     p = n // 2
     
     # Wrap initial parameters (x[:p] is beta, x[p:] is gamma)
-    x[:p] = np.mod(x[:p], np.pi)     # beta in [0, pi]
+    x[:p] = np.mod(x[:p], 2 * np.pi) # beta in [0, 2*pi]
     x[p:] = np.mod(x[p:], 2 * np.pi) # gamma in [0, 2*pi]
     
     trajectory_params = [x.copy().tolist()]
@@ -210,7 +210,7 @@ def custom_gradient_descent(
             x -= learning_rate * grad
         
         # Keep parameters within periodic boundaries
-        x[:p] = np.mod(x[:p], np.pi)     # beta in [0, pi]
+        x[:p] = np.mod(x[:p], 2 * np.pi) # beta in [0, 2*pi]
         x[p:] = np.mod(x[p:], 2 * np.pi) # gamma in [0, 2*pi]
         
         trajectory_params.append(x.copy().tolist())
@@ -276,7 +276,7 @@ def qaoa_optimizer(
     try:
         if optimizer_method.upper() == 'GD':
             best_params = None
-            best_value = float('inf')
+            best_value_run = float('inf')
             best_num_iterations = 0
             best_termination_reason = ""
             best_trajectory_params = []
@@ -299,15 +299,15 @@ def qaoa_optimizer(
                     method=gd_method
                 )
                 all_trajectories.append(traj_params)
-                if opt_value < best_value:
-                    best_value = opt_value
+                if opt_value < best_value_run:
+                    best_value_run = opt_value
                     best_params = opt_params
                     best_num_iterations = num_iter
                     best_termination_reason = f"[Run {start_idx + 1}] {term_reason}"
                     best_trajectory_params = traj_params
             
             optimal_params = best_params
-            optimal_value = best_value
+            optimal_value = best_value_run
             num_iterations = best_num_iterations
             termination_reason = best_termination_reason
             trajectory_params = best_trajectory_params
