@@ -150,15 +150,16 @@ class PlotGradientDescentPlugin(QAOACommandPlugin):
         
         # Panel 1: Graph Partition
         best_bitstring = results['best_measured_bitstring']
-        partition = [int(char) for char in best_bitstring]
+        sorted_nodes = sorted(graph.nodes())
+        partition_dict = {node: int(best_bitstring[idx]) for idx, node in enumerate(sorted_nodes)}
         
         pos = nx.spring_layout(graph, seed=42)
-        node_colors = ['#1f77b4' if partition[node] == 0 else '#ff7f0e' for node in graph.nodes()]
+        node_colors = ['#1f77b4' if partition_dict[node] == 0 else '#ff7f0e' for node in graph.nodes()]
         
         cut_edges = []
         non_cut_edges = []
         for u, v in graph.edges():
-            if partition[u] != partition[v]:
+            if partition_dict[u] != partition_dict[v]:
                 cut_edges.append((u, v))
             else:
                 non_cut_edges.append((u, v))
