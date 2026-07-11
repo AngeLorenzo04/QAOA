@@ -51,9 +51,9 @@ QAOA/
 │   │   │   └── plugin_interface.py # Classe base astratta per tutti i plugin
 │   │   ├── plugins/       # Moduli plugin registrati nel microkernel
 │   │   │   ├── benchmarking_plugin.py         # Benchmark configurabile classico ILP / quantistico QAOA
-│   │   │   ├── plot_gradient_descent_plugin.py # Traiettoria GD 2D/3D sul panorama del costo
+│   │   │   ├── plot_gradient_descent_plugin.py # Calcolo e rendering traiettoria GD (helper per run_qaoa)
 │   │   │   ├── plot_landscape_plugin.py        # Visualizza panorama di costo con label esatte e istogrammi
-│   │   │   ├── run_qaoa_plugin.py              # Esecuzione singola ottimizzazione QAOA + dashboard
+│   │   │   ├── run_qaoa_plugin.py              # Analisi classica, quantistica e plotting integrato (COBYLA/GD)
 │   │   │   └── visualize_benchmarks_plugin.py  # Menu di visualizzazione e confronto dei benchmark
 │   │   ├── ansatz.py      # Crea il QAOA Ansatz parametrizzato
 │   │   ├── encoding.py    # Strategie per la rappresentazione e codifica quantistica
@@ -86,11 +86,12 @@ Questo è il punto di ingresso principale per tutte le funzionalità di QAOA bas
   ```
 * **Azioni e Plugin disponibili nel Menu**:
   1. **Seleziona/Cambia grafo (`s`)**: Permette di filtrare i grafi per numero di nodi $N$, densità $D$, e ID.
-  2. **Esecuzione QAOA Standard (`run_qaoa`)**: Esegue l'ottimizzazione classica (con optimizer `COBYLA`, `SLSQP` o `GD`), mostra il confronto dei tagli atteso/misurato con quello esatto classico (ILP), e mostra la dashboard grafica 1x3 al termine.
+  2. **Analisi ed Esecuzione QAOA (`run_qaoa`)**: Consolle unificata che permette di scegliere tra:
+     - **Analisi Classica (Risolutore Esatto)**: Calcola il Max-Cut esatto (brute-force o ILP) e ne traccia la partizione classica.
+     - **QAOA (Ottimizzazione Quantistica)**: Ottimizza il circuito quantistico tramite `COBYLA` o `GD` (con scelta tra le varianti `vanilla`, `momentum`, `adam`). Al termine, permette di visualizzare la **Dashboard standard 1x3** o la **Traiettoria GD 2D/3D** (quest'ultima solo se $p=1$ layer quantistico).
   3. **Visualizzazione Panorama 2D (`plot_landscape`)**: Calcola la mappa energetica 2D con un'analisi esatta Statevector per $N \le 12$ per garantire la simmetria dei bit. Individua e categorizza i minimi locali e globali e visualizza le partizioni associate in una legenda ad immagini.
-  4. **Traiettoria Gradient Descent (`plot_gradient_descent`)**: Esegue la discesa del gradiente quantistica e proietta il percorso dei parametri sui panorami 2D e 3D del costo.
-  5. **Benchmarking Suite (`benchmarking`)**: **[Plugin Globale]** Consente di calcolare i benchmark del dataset scegliendo l'ottimizzatore desiderato, e configurando se calcolare solo la risposta classica ILP, solo la risposta quantistica QAOA, o entrambe.
-  6. **Analisi dei Risultati (`visualize_benchmarks`)**: **[Plugin Globale]** Permette di visualizzare le performance del benchmark selezionando quale grafico di analisi tracciare (Approx Ratio vs N, vs D, vs p, o confronto stochastico degli ottimizzatori).
+  4. **Benchmarking Suite (`benchmarking`)**: **[Plugin Globale]** Consente di calcolare i benchmark del dataset scegliendo l'ottimizzatore desiderato, e configurando se calcolare solo la risposta classica ILP, solo la risposta quantistica QAOA, o entrambe.
+  5. **Analisi dei Risultati (`visualize_benchmarks`)**: **[Plugin Globale]** Permette di visualizzare le performance del benchmark selezionando quale grafico di analisi tracciare (Approx Ratio vs N, vs D, vs p, o confronto stochastico degli ottimizzatori).
 
 ### 2. Demo classiche in Pennylane (Max-Cut & Max-k-Cut)
 Questi script offrono dimostrazioni classiche interattive su grafi di test predefiniti o personalizzati.
