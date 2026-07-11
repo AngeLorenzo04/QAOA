@@ -255,7 +255,7 @@ class PlotGradientDescentPlugin(QAOACommandPlugin):
         # Panel 3: Convergence
         iterations = range(len(trajectory_cuts))
         ax3.plot(iterations, -np.array(trajectory_cuts), color='#e74c3c', marker='o', linestyle='-', linewidth=2, label='Costo Atteso $-\\langle C \\rangle$')
-        ax3.axhline(y=results['best_measured_cut_value'], color='black', linestyle='--', linewidth=1.5, label='Miglior Taglio Misurato')
+        ax3.axhline(y=-results['best_measured_cut_value'], color='black', linestyle='--', linewidth=1.5, label='Miglior Taglio Misurato')
         ax3.set_xlabel('Iterazioni di Gradient Descent', fontsize=12)
         ax3.set_ylabel('Valore del Taglio (Costo)', fontsize=12)
         ax3.set_title("3. Curva di Convergenza dell'Algoritmo", fontsize=13, fontweight='bold', pad=15)
