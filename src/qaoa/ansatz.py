@@ -3,6 +3,8 @@ from qiskit.circuit import QuantumCircuit, ParameterVector, Parameter
 from qiskit.quantum_info import SparsePauliOp
 from qiskit.opflow import I, X, Z, PauliSumOp
 
+from src.qaoa.mixers import get_mixer
+
 def get_cost_hamiltonian(graph: nx.Graph) -> PauliSumOp:
     """
     Constructs the Cost Hamiltonian (H_C) for the MaxCut problem.
@@ -47,48 +49,26 @@ def get_mixer_hamiltonian(graph: nx.Graph) -> PauliSumOp:
     return h_m
 
 
-def get_qaoa_ansatz(graph: nx.Graph, p: int) -> QuantumCircuit:
+def get_qaoa_ansatz(graph: nx.Graph, p: int, mixer: str = "standard") -> QuantumCircuit:
     """
     Constructs the QAOA ansatz circuit.
 
     Args:
         graph (nx.Graph): The input graph.
         p (int): The number of QAOA layers.
+        mixer (str): The mixer strategy to use ('standard' or 'grover').
 
     Returns:
         QuantumCircuit: The QAOA ansatz circuit.
     """
     num_qubits = graph.number_of_nodes()
-    qc = QuantumCircuit(num_qubits)
-
-    # Apply initial Hadamard gates
-    qc.h(range(num_qubits))
-
-    # Define parameters for Cost and Mixer Hamiltonians
-    gamma = ParameterVector('gamma', p)
-    beta = ParameterVector('beta', p)
-
-    # Get Cost and Mixer Hamiltonians
-    h_c = get_cost_hamiltonian(graph)
-    h_m = get_mixer_hamiltonian(graph)
-
-    # Apply p layers of QAOA
-    for layer in range(p):
-        # Apply Cost Hamiltonian evolution
-        # e^(-i * gamma_p * H_C)
-        qc.rx(2 * gamma[layer], range(num_qubits)) # Placeholder, need proper exponential evolution
-
-        # Apply Mixer Hamiltonian evolution
-        # e^(-i * beta_p * H_M)
-        qc.rz(2 * beta[layer], range(num_qubits)) # Placeholder, need proper exponential evolution
-
-    # --- Corrected application of Hamiltonian evolution ---
-    # The above Rx/Rz are NOT correct for arbitrary Hamiltonians.
-    # For H_C = sum (I - Z_i Z_j)/2, the evolution is effectively RZ(2*gamma_p) for each Z_i Z_j term.
-    # For H_M = sum X_i, the evolution is effectively RX(2*beta_p) for each X_i term.
-
     qc_correct = QuantumCircuit(num_qubits)
-    qc_correct.h(range(num_qubits))
+
+    # Get the mixer strategy
+    mixer_strategy = get_mixer(mixer)
+
+    # Apply initial state
+    mixer_strategy.apply_initial_state(qc_correct, num_qubits)
 
     # Define parameters for Cost and Mixer Hamiltonians
     gamma_correct = ParameterVector('gamma', p)
@@ -99,8 +79,8 @@ def get_qaoa_ansatz(graph: nx.Graph, p: int) -> QuantumCircuit:
         for i, j in graph.edges():
             qc_correct.rzz(2 * gamma_correct[layer], i, j)
         
-        # Mixer Layer: Apply RX gates to all qubits
-        qc_correct.rx(2 * beta_correct[layer], range(num_qubits))
+        # Mixer Layer: Apply mixer unitary
+        mixer_strategy.apply_mixer(qc_correct, beta_correct[layer], num_qubits)
     
     return qc_correct
 
@@ -123,13 +103,16 @@ if __name__ == '__main__':
 
     # Test Mixer Hamiltonian
     h_m_op = get_mixer_hamiltonian(G)
-    print("\nMixer Hamiltonian (H_M):")
+    print("\nStandard Mixer Hamiltonian (H_M):")
     print(h_m_op)
 
-    # Test QAOA Ansatz Circuit
-    qaoa_circuit = get_qaoa_ansatz(G, p_value)
-    print(f"\nQAOA Ansatz Circuit (p={p_value}):")
+    # Test QAOA Ansatz Circuit with standard mixer
+    qaoa_circuit = get_qaoa_ansatz(G, p_value, mixer="standard")
+    print(f"\nQAOA Ansatz Circuit (Standard Mixer, p={p_value}):")
     print(qaoa_circuit.draw(output='text'))
 
-    # You can bind parameters and simulate later
-    # Example: qc_bound = qaoa_circuit.bind_parameters({gamma[0]: 0.5, beta[0]: 0.3})
+    # Test QAOA Ansatz Circuit with Grover mixer
+    qaoa_circuit_grover = get_qaoa_ansatz(G, p_value, mixer="grover")
+    print(f"\nQAOA Ansatz Circuit (Grover Mixer, p={p_value}):")
+    print(qaoa_circuit_grover.draw(output='text'))
+

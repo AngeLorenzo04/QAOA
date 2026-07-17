@@ -75,6 +75,13 @@ class RunQAOAPlugin(QAOACommandPlugin):
         else:
             # --- ANALISI QUANTISTICA QAOA ---
             console.print("\n[bold cyan]=== CONFIGURAZIONE QAOA ===[/bold cyan]")
+            
+            console.print("\n[bold cyan]Scegli il tipo di Mixer:[/bold cyan]")
+            console.print("  [yellow]1[/yellow] - Standard (Transverse-Field)")
+            console.print("  [yellow]2[/yellow] - Grover")
+            mixer_choice = Prompt.ask("Scegli un'opzione", choices=["1", "2"], default="1")
+            runner.mixer_type = "standard" if mixer_choice == "1" else "grover"
+            
             p_layers = IntPrompt.ask("Inserisci il numero di layer QAOA (p)", default=runner.p_value)
             runner.update_p(p_layers)
             

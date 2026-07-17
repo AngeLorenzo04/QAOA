@@ -21,7 +21,7 @@ class QAOARunner:
 
         self.graph = graph
         self.p_value = p_value
-        self.mixer_type = mixer_type # Currently only "standard" is supported
+        self.mixer_type = mixer_type
         self.encoding_type = encoding_type # Currently only "binary" is supported
         self.num_qubits = graph.number_of_nodes()
 
@@ -30,7 +30,7 @@ class QAOARunner:
         self.estimator = Estimator()
 
         # Build QAOA components
-        self.ansatz_circuit = get_qaoa_ansatz(self.graph, self.p_value)
+        self.ansatz_circuit = get_qaoa_ansatz(self.graph, self.p_value, mixer=self.mixer_type)
         self.cost_hamiltonian = get_cost_hamiltonian(self.graph)
 
     def update_p(self, p_value: int) -> None:
@@ -38,7 +38,7 @@ class QAOARunner:
         Dynamically updates the QAOA layers (p) and reconstructs the ansatz.
         """
         self.p_value = p_value
-        self.ansatz_circuit = get_qaoa_ansatz(self.graph, self.p_value)
+        self.ansatz_circuit = get_qaoa_ansatz(self.graph, self.p_value, mixer=self.mixer_type)
 
     def run(
         self,
