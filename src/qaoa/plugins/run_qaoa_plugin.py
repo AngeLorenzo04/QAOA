@@ -147,38 +147,42 @@ class RunQAOAPlugin(QAOACommandPlugin):
             console.print("")
             
             # 5. Visualizzazione Grafici
-            if optimizer == 'GD':
-                console.print("\n[bold cyan]Scegli il grafico da visualizzare:[/bold cyan]")
-                console.print("  [yellow]1[/yellow] - Dashboard standard 1x3")
-                if runner.p_value == 1:
-                    console.print("  [yellow]2[/yellow] - Traiettoria GD 2D/3D")
-                    console.print("  [yellow]3[/yellow] - Nessuno")
-                    plot_choice_num = Prompt.ask("Scegli un'opzione", choices=["1", "2", "3"], default="1")
-                    plot_choice = "Dashboard standard 1x3" if plot_choice_num == "1" else "Traiettoria GD 2D/3D" if plot_choice_num == "2" else "Nessuno"
+            while True:
+                if optimizer == 'GD':
+                    console.print("\n[bold cyan]Scegli il grafico da visualizzare:[/bold cyan]")
+                    console.print("  [yellow]1[/yellow] - Dashboard standard 1x3")
+                    if runner.p_value == 1:
+                        console.print("  [yellow]2[/yellow] - Traiettoria GD 2D/3D")
+                        console.print("  [yellow]3[/yellow] - Nessuno")
+                        plot_choice_num = Prompt.ask("Scegli un'opzione", choices=["1", "2", "3"], default="1")
+                        plot_choice = "Dashboard standard 1x3" if plot_choice_num == "1" else "Traiettoria GD 2D/3D" if plot_choice_num == "2" else "Nessuno"
+                    else:
+                        console.print("  [yellow]2[/yellow] - Nessuno")
+                        console.print("[yellow]Nota: La traiettoria GD 2D/3D è visualizzabile solo per p=1 layer quantistico (spazio di ricerca 2D).[/yellow]")
+                        plot_choice_num = Prompt.ask("Scegli un'opzione", choices=["1", "2"], default="1")
+                        plot_choice = "Dashboard standard 1x3" if plot_choice_num == "1" else "Nessuno"
                 else:
-                    console.print("  [yellow]2[/yellow] - Nessuno")
-                    console.print("[yellow]Nota: La traiettoria GD 2D/3D è visualizzabile solo per p=1 layer quantistico (spazio di ricerca 2D).[/yellow]")
-                    plot_choice_num = Prompt.ask("Scegli un'opzione", choices=["1", "2"], default="1")
-                    plot_choice = "Dashboard standard 1x3" if plot_choice_num == "1" else "Nessuno"
-            else:
-                plot_choice_str = Prompt.ask("Vuoi visualizzare la dashboard grafica dei risultati?", choices=["si", "no"], default="si")
-                plot_choice = "Dashboard standard 1x3" if plot_choice_str.lower() in ["si", "s"] else "Nessuno"
-                
-            if plot_choice == "Dashboard standard 1x3":
-                probs = np.zeros(2**n_nodes)
-                for bitstring, prob in quasi_dist.items():
-                    state_int = int(bitstring, 2)
-                    probs[state_int] = prob
-                plot_qaoa_dashboard(
-                    graph=graph,
-                    k=2,
-                    probs=probs,
-                    best_bitstring=best_bitstring,
-                    cost_history=qaoa_results['metrics']['optimization_history'],
-                    title=f"QAOA N={n_nodes}, D={graph_info['density_edges']:.2f}, ID={graph_info['id']} ({optimizer})"
-                )
-            elif plot_choice == "Traiettoria GD 2D/3D":
-                self.plot_gd_trajectory(graph, runner, qaoa_results, console)
+                    plot_choice_str = Prompt.ask("Vuoi visualizzare la dashboard grafica dei risultati?", choices=["si", "no"], default="si")
+                    plot_choice = "Dashboard standard 1x3" if plot_choice_str.lower() in ["si", "s"] else "Nessuno"
+                    
+                if plot_choice == "Nessuno":
+                    break
+                    
+                if plot_choice == "Dashboard standard 1x3":
+                    probs = np.zeros(2**n_nodes)
+                    for bitstring, prob in quasi_dist.items():
+                        state_int = int(bitstring, 2)
+                        probs[state_int] = prob
+                    plot_qaoa_dashboard(
+                        graph=graph,
+                        k=2,
+                        probs=probs,
+                        best_bitstring=best_bitstring,
+                        cost_history=qaoa_results['metrics']['optimization_history'],
+                        title=f"QAOA N={n_nodes}, D={graph_info['density_edges']:.2f}, ID={graph_info['id']} ({optimizer})"
+                    )
+                elif plot_choice == "Traiettoria GD 2D/3D":
+                    self.plot_gd_trajectory(graph, runner, qaoa_results, console)
 
     def plot_classical_partition(self, graph: nx.Graph, exact_maxcut_val: int, best_bitstring: str) -> None:
         n_nodes = graph.number_of_nodes()
@@ -313,12 +317,15 @@ class RunQAOAPlugin(QAOACommandPlugin):
         ]
         ax1.legend(handles=legend_elements, loc='lower center', fontsize=11, frameon=True, shadow=True)
         exact_maxcut_val = graph.graph.get('exact_max_cut_value', -1)
+        best_cuts = all_trajectory_cuts[best_idx]
+        expected_cost = -best_cuts[-1]
+        
         if exact_maxcut_val != -1 and exact_maxcut_val is not None and exact_maxcut_val > 0:
             ratio = len(cut_edges) / exact_maxcut_val
-            ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Taglio: {len(cut_edges)}/{exact_maxcut_val}, Ratio: {ratio:.4f})\n"
+            ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Taglio: {len(cut_edges)}/{exact_maxcut_val}, Ratio: {ratio:.4f}, Costo Atteso: {expected_cost:.4f})\n"
                           f"Parametri Ottimi: $\\gamma$ = {best_gammas[-1]:.4f}, $\\beta$ = {best_betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
         else:
-            ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Costo: {results['best_measured_cut_value']})\n"
+            ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Costo Atteso: {expected_cost:.4f})\n"
                           f"Parametri Ottimi: $\\gamma$ = {best_gammas[-1]:.4f}, $\\beta$ = {best_betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
         ax1.axis('off')
         

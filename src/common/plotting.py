@@ -80,8 +80,6 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
         else:
             uncut_edges.append((u, v))
             
-    ax3.set_title(f"3. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)})", fontsize=16)
-    
     exact_val = graph.graph.get('exact_max_cut_value', -1)
     if exact_val == -1 and k == 2 and len(graph.nodes) <= 16:
         try:
@@ -90,11 +88,24 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
         except Exception:
             pass
             
+    expected_cost = None
+    if cost_history:
+        if isinstance(cost_history, dict) and 'fun' in cost_history and cost_history['fun']:
+            expected_cost = cost_history['fun'][-1]
+        elif isinstance(cost_history, (list, np.ndarray)) and len(cost_history) > 0:
+            expected_cost = cost_history[-1]
+
     if exact_val != -1 and exact_val is not None and exact_val > 0:
         ratio = len(cut_edges) / exact_val
-        ax3.set_title(f"3. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f})", fontsize=16)
+        if expected_cost is not None:
+            ax3.set_title(f"3. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}, Costo Atteso: {expected_cost:.4f})", fontsize=16)
+        else:
+            ax3.set_title(f"3. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}, Costo: {-len(cut_edges)})", fontsize=16)
     else:
-        ax3.set_title(f"3. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)})", fontsize=16)
+        if expected_cost is not None:
+            ax3.set_title(f"3. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}, Costo Atteso: {expected_cost:.4f})", fontsize=16)
+        else:
+            ax3.set_title(f"3. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}, Costo: {-len(cut_edges)})", fontsize=16)
 
     nx.draw_networkx_edges(graph, pos, ax=ax3, edgelist=uncut_edges, width=1.0, edge_color='gray', alpha=0.3)
     nx.draw_networkx_edges(graph, pos, ax=ax3, edgelist=cut_edges, width=2.0, edge_color='darkblue', style='dashed')

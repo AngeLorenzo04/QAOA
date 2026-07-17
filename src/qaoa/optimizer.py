@@ -288,7 +288,10 @@ def qaoa_optimizer(
             for _ in range(num_starts - 1):
                 starts.append(np.random.rand(2 * p) * 2 * np.pi)
                 
+            best_history_fun = []
+            best_history_params = []
             for start_idx, start_p in enumerate(starts):
+                start_history_idx = len(history['fun'])
                 opt_params, opt_value, num_iter, term_reason, traj_params = custom_gradient_descent(
                     objective_function,
                     start_p,
@@ -298,6 +301,10 @@ def qaoa_optimizer(
                     dx=dx,
                     method=gd_method
                 )
+                end_history_idx = len(history['fun'])
+                run_history_fun = history['fun'][start_history_idx:end_history_idx]
+                run_history_params = history['params'][start_history_idx:end_history_idx]
+                
                 all_trajectories.append(traj_params)
                 if opt_value < best_value_run:
                     best_value_run = opt_value
@@ -305,12 +312,16 @@ def qaoa_optimizer(
                     best_num_iterations = num_iter
                     best_termination_reason = f"[Run {start_idx + 1}] {term_reason}"
                     best_trajectory_params = traj_params
+                    best_history_fun = run_history_fun
+                    best_history_params = run_history_params
             
             optimal_params = best_params
             optimal_value = best_value_run
             num_iterations = best_num_iterations
             termination_reason = best_termination_reason
             trajectory_params = best_trajectory_params
+            history['fun'] = best_history_fun
+            history['params'] = best_history_params
         else:
             # Perform classical optimization using SciPy minimize
             result = minimize(

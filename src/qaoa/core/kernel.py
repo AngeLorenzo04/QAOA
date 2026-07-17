@@ -204,8 +204,6 @@ class QAOAQAOMicrokernel:
                     self.console.print(f"\n[bold green]>>> Esecuzione plugin: {plugin.name}...[/bold green]")
                     plugin.execute(self.selected_graph_info, runner, self.console)
                     self.console.print(f"[bold green]>>> Esecuzione completata.[/bold green]\n")
-                    if plugin.requires_graph:
-                        self.select_graph_interactively()
                 except Exception as e:
                     self.console.print(f"[bold red]Errore durante l'esecuzione del plugin '{plugin.name}': {e}[/bold red]")
                     import traceback
