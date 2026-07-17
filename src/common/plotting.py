@@ -58,7 +58,6 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
     
     # --- 3. Result Partition ---
     ax3 = axes[2]
-    ax3.set_title(f"3. Max-{k}-Cut Partition", fontsize=16)
     
     # Determine node colors and partition groups
     if k == 2 and node_colors is None:
@@ -81,6 +80,7 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
         else:
             uncut_edges.append((u, v))
             
+    ax3.set_title(f"3. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)})", fontsize=16)
     nx.draw_networkx_edges(graph, pos, ax=ax3, edgelist=uncut_edges, width=1.0, edge_color='gray', alpha=0.3)
     nx.draw_networkx_edges(graph, pos, ax=ax3, edgelist=cut_edges, width=2.0, edge_color='darkblue', style='dashed')
     nx.draw_networkx_nodes(graph, pos, ax=ax3, node_color=draw_colors, node_size=800, edgecolors='black')

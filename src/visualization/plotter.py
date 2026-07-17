@@ -62,6 +62,8 @@ def plot_graph_with_cut(
     # Draw labels
     nx.draw_networkx_labels(graph, pos, font_size=10, font_color='black')
 
+    if partition is not None and "Rami tagliati" not in title and "Cut" not in title:
+        title = f"{title}\n(Rami tagliati: {len(cut_edges)})"
     plt.title(title)
     plt.axis('off') # Hide axes
 
