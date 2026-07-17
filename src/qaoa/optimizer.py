@@ -110,7 +110,7 @@ def get_objective_function(
         exp_val = 0.0
         for state_int, prob in quasi_distribution.items():
             # Convert integer state to bitstring
-            bitstring = format(state_int, f'0{num_qubits}b')
+            bitstring = format(state_int, f'0{num_qubits}b')[::-1]
             maxcut_val_for_bitstring = calculate_maxcut_value(graph, bitstring)
             exp_val += prob * maxcut_val_for_bitstring
             
@@ -387,7 +387,7 @@ if __name__ == '__main__':
     print("\nTop 5 Measurement Outcomes:")
     sorted_outcomes = sorted(quasi_distribution.items(), key=lambda item: item[1], reverse=True)
     for state_int, prob in sorted_outcomes[:5]:
-        bitstring = format(state_int, f'0{num_qubits}b')
+        bitstring = format(state_int, f'0{num_qubits}b')[::-1]
         cut_val = calculate_maxcut_value(G, bitstring)
         print(f"  Bitstring: {bitstring}, Probability: {prob:.4f}, Cut Value: {cut_val}")
 

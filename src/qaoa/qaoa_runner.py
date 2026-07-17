@@ -113,7 +113,7 @@ class QAOARunner:
         sorted_outcomes = sorted(quasi_distribution.items(), key=lambda item: item[1], reverse=True)
         
         for state_int, prob in sorted_outcomes:
-            bitstring = format(state_int, f'0{self.num_qubits}b')
+            bitstring = format(state_int, f'0{self.num_qubits}b')[::-1]
             cut_val = calculate_maxcut_value(self.graph, bitstring)
             qaoa_expected_cut_value += prob * cut_val
             
@@ -131,7 +131,7 @@ class QAOARunner:
             'qaoa_expected_cut_value': qaoa_expected_cut_value,
             'best_measured_cut_value': best_measured_cut_value,
             'best_measured_bitstring': best_measured_bitstring,
-            'quasi_distribution': {format(k, f'0{self.num_qubits}b'): float(v) for k, v in quasi_distribution.items()}, # Convert keys to bitstrings and prob to float for JSON
+            'quasi_distribution': {format(k, f'0{self.num_qubits}b')[::-1]: float(v) for k, v in quasi_distribution.items()}, # Convert keys to bitstrings and prob to float for JSON
             'metrics': {
                 'circuit_depth': circuit_depth,
                 'num_parameters': num_parameters,

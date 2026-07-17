@@ -41,7 +41,7 @@ def compute_cut_landscape(graph, ansatz_circuit, sampler, steps=22):
             
             exp_val = 0.0
             for state_int, prob in quasi_distribution.items():
-                bitstring = format(state_int, f'0{num_qubits}b')
+                bitstring = format(state_int, f'0{num_qubits}b')[::-1]
                 exp_val += prob * calculate_maxcut_value(graph, bitstring)
                 
             cut_grid[i, j] = exp_val
@@ -74,7 +74,7 @@ def get_top_solutions_at_point(graph, ansatz_circuit, sampler, g, b):
     top_outcomes = []
     for state_int, prob in sorted_outcomes:
         if prob >= max_prob * 0.8:
-            bitstring = format(state_int, f'0{num_qubits}b')
+            bitstring = format(state_int, f'0{num_qubits}b')[::-1]
             top_outcomes.append(bitstring)
     return "/".join(top_outcomes)
 
@@ -132,7 +132,7 @@ class PlotGradientDescentPlugin(QAOACommandPlugin):
                 
                 exp_val = 0.0
                 for state_int, prob in quasi_distribution.items():
-                    bitstring = format(state_int, f'0{n_nodes}b')
+                    bitstring = format(state_int, f'0{n_nodes}b')[::-1]
                     exp_val += prob * calculate_maxcut_value(graph, bitstring)
                 trajectory_cuts.append(exp_val)
                 
@@ -176,7 +176,7 @@ class PlotGradientDescentPlugin(QAOACommandPlugin):
             Line2D([0], [0], color='#cccccc', lw=2, linestyle='--', label='Non Taglio')
         ]
         ax1.legend(handles=legend_elements, loc='lower center', fontsize=11, frameon=True, shadow=True)
-        ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Costo: {results['best_measured_cut_value']})\n"
+        ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Costo: {results['best_measured_cut_value']})\n"
                       f"Parametri Ottimi: $\\gamma$ = {gammas[-1]:.4f}, $\\beta$ = {betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
         ax1.axis('off')
         

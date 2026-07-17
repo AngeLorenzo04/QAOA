@@ -210,7 +210,7 @@ class RunQAOAPlugin(QAOACommandPlugin):
             Line2D([0], [0], color='#cccccc', lw=2, linestyle='--', label='Non Taglio')
         ]
         ax.legend(handles=legend_elements, loc='lower center', fontsize=11, frameon=True, shadow=True)
-        ax.set_title(f"Taglio Massimo Classico (Esatto)\nValore del Taglio: {exact_maxcut_val} | Soluzione: {best_bitstring}", fontsize=13, fontweight='bold', pad=15)
+        ax.set_title(f"Taglio Massimo Classico (Esatto)\nValore del Taglio: {exact_maxcut_val} (Rami tagliati: {len(cut_edges)}) | Soluzione: {best_bitstring}", fontsize=13, fontweight='bold', pad=15)
         ax.axis('off')
         plt.tight_layout()
         plt.show()
@@ -261,7 +261,7 @@ class RunQAOAPlugin(QAOACommandPlugin):
                     
                     exp_val = 0.0
                     for state_int, prob in quasi_distribution.items():
-                        bitstring = format(state_int, f'0{n_nodes}b')
+                        bitstring = format(state_int, f'0{n_nodes}b')[::-1]
                         exp_val += prob * calculate_maxcut_value(graph, bitstring)
                     cuts.append(exp_val)
                 all_trajectory_cuts.append(cuts)
@@ -312,7 +312,7 @@ class RunQAOAPlugin(QAOACommandPlugin):
             Line2D([0], [0], color='#cccccc', lw=2, linestyle='--', label='Non Taglio')
         ]
         ax1.legend(handles=legend_elements, loc='lower center', fontsize=11, frameon=True, shadow=True)
-        ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Costo: {results['best_measured_cut_value']})\n"
+        ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Costo: {results['best_measured_cut_value']})\n"
                       f"Parametri Ottimi: $\\gamma$ = {best_gammas[-1]:.4f}, $\\beta$ = {best_betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
         ax1.axis('off')
         

@@ -44,7 +44,7 @@ def compute_cut_landscape(graph, ansatz_circuit, sampler, steps=25):
             
             exp_val = 0.0
             for state_int, prob in quasi_distribution.items():
-                bitstring = format(state_int, f'0{num_qubits}b')
+                bitstring = format(state_int, f'0{num_qubits}b')[::-1]
                 exp_val += prob * calculate_maxcut_value(graph, bitstring)
                 
             cut_grid[i, j] = exp_val
@@ -76,13 +76,13 @@ def get_top_solutions_at_point(graph, ansatz_circuit, sampler, g, b):
     top_outcomes = []
     for state_int, prob in sorted_outcomes:
         if prob >= max_prob * 0.8:
-            bitstring = format(state_int, f'0{num_qubits}b')
+            bitstring = format(state_int, f'0{num_qubits}b')[::-1]
             top_outcomes.append(bitstring)
     return "/".join(top_outcomes), sorted_outcomes[0][0], sorted_outcomes
 
 def draw_graph_partition(ax, graph, bitstring_int, title):
     num_qubits = graph.number_of_nodes()
-    bitstring = format(bitstring_int, f'0{num_qubits}b')
+    bitstring = format(bitstring_int, f'0{num_qubits}b')[::-1]
     partition = [int(char) for char in bitstring]
     
     pos = nx.spring_layout(graph, seed=42)
@@ -103,6 +103,7 @@ def draw_graph_partition(ax, graph, bitstring_int, title):
     nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_size=600, edgecolors='black', linewidths=1.2, ax=ax)
     nx.draw_networkx_labels(graph, pos, labels=labels, font_size=8, font_color='white', font_weight='bold', ax=ax)
     
+    title = f"{title}\nRami tagliati: {len(cut_edges)}"
     ax.set_title(title, fontsize=10, fontweight='bold', pad=10)
     ax.axis('off')
 
@@ -170,7 +171,7 @@ class PlotLandscapePlugin(QAOACommandPlugin):
                 sol_text, sol_int, sorted_outcomes = get_top_solutions_at_point(graph, runner.ansatz_circuit, sampler, g, b)
                 
                 num_qubits = graph.number_of_nodes()
-                bitstring = format(sol_int, f'0{num_qubits}b')
+                bitstring = format(sol_int, f'0{num_qubits}b')[::-1]
                 canonical = get_canonical_partition(bitstring)
                 
                 minimum_info = {
@@ -262,7 +263,7 @@ class PlotLandscapePlugin(QAOACommandPlugin):
             x_labels = []
             y_probs = []
             for state_int, prob in sorted_outcomes[:top_k]:
-                bitstring = format(state_int, f'0{n_nodes}b')
+                bitstring = format(state_int, f'0{n_nodes}b')[::-1]
                 x_labels.append(bitstring)
                 y_probs.append(prob)
                 
