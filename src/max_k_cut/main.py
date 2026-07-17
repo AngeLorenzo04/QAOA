@@ -5,6 +5,12 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn, BarColumn, TextColumn
 from rich.prompt import Prompt, IntPrompt
 
+import sys
+import os
+
+# Aggiunge la directory src/ al path di Python per poter importare common e moduli locali
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 # Importazioni dai moduli locali
 from common import graphs
 from common.plotting import plot_qaoa_dashboard
