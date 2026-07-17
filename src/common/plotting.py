@@ -81,6 +81,21 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
             uncut_edges.append((u, v))
             
     ax3.set_title(f"3. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)})", fontsize=16)
+    
+    exact_val = graph.graph.get('exact_max_cut_value', -1)
+    if exact_val == -1 and k == 2 and len(graph.nodes) <= 16:
+        try:
+            from src.data.exact_maxcut_solver import find_exact_maxcut
+            exact_val = find_exact_maxcut(graph)['max_cut_value']
+        except Exception:
+            pass
+            
+    if exact_val != -1 and exact_val is not None and exact_val > 0:
+        ratio = len(cut_edges) / exact_val
+        ax3.set_title(f"3. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f})", fontsize=16)
+    else:
+        ax3.set_title(f"3. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)})", fontsize=16)
+
     nx.draw_networkx_edges(graph, pos, ax=ax3, edgelist=uncut_edges, width=1.0, edge_color='gray', alpha=0.3)
     nx.draw_networkx_edges(graph, pos, ax=ax3, edgelist=cut_edges, width=2.0, edge_color='darkblue', style='dashed')
     nx.draw_networkx_nodes(graph, pos, ax=ax3, node_color=draw_colors, node_size=800, edgecolors='black')

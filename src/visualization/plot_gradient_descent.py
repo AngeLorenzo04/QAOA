@@ -173,8 +173,21 @@ def plot_gradient_descent_trajectory():
         Line2D([0], [0], color='#cccccc', lw=2, linestyle='--', label='Uncut Edges')
     ]
     ax1.legend(handles=legend_elements, loc='lower center', fontsize=11, frameon=True, shadow=True)
-    ax1.set_title(f"1. Problem Graph & Max Cut Solution\nBest Partition: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Cut Value: {results['best_measured_cut_value']})\n"
-                  f"Optimal Parameters: $\\gamma$ = {gammas[-1]:.4f}, $\\beta$ = {betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
+    exact_maxcut_val = graph.graph.get('exact_max_cut_value', -1)
+    if exact_maxcut_val == -1:
+        try:
+            from src.data.exact_maxcut_solver import find_exact_maxcut
+            exact_maxcut_val = find_exact_maxcut(graph)['max_cut_value']
+        except Exception:
+            pass
+
+    if exact_maxcut_val != -1 and exact_maxcut_val is not None and exact_maxcut_val > 0:
+        ratio = len(cut_edges) / exact_maxcut_val
+        ax1.set_title(f"1. Problem Graph & Max Cut Solution\nBest Partition: {best_bitstring} (Taglio: {len(cut_edges)}/{exact_maxcut_val}, Ratio: {ratio:.4f})\n"
+                      f"Optimal Parameters: $\\gamma$ = {gammas[-1]:.4f}, $\\beta$ = {betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
+    else:
+        ax1.set_title(f"1. Problem Graph & Max Cut Solution\nBest Partition: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Cut Value: {results['best_measured_cut_value']})\n"
+                      f"Optimal Parameters: $\\gamma$ = {gammas[-1]:.4f}, $\\beta$ = {betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
     ax1.axis('off')
     
     # --- PANEL 2: 2D Energy Density (Contour Plot) with GD Trajectory ---
