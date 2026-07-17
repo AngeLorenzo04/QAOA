@@ -125,18 +125,13 @@ class QAOAQAOMicrokernel:
             return None
             
         if self.runner is None:
-            # Ask for standard initial configuration
-            self.console.print("\n[bold cyan]=== INIZIALIZZAZIONE RUNNER QAOA ===[/bold cyan]")
-            p_layers = IntPrompt.ask("Inserisci il numero di layer QAOA (p)", default=1)
-            
-            # Create runner
+            # Create default runner with p=1 (the run_qaoa plugin will ask for p dynamically)
             self.runner = QAOARunner(
                 graph=self.selected_graph_info['graph'],
-                p_value=p_layers,
+                p_value=1,
                 mixer_type="standard",
                 encoding_type="binary"
             )
-            self.console.print(f"[green]Runner QAOA pronto con p={p_layers}.[/green]")
             
         return self.runner
 

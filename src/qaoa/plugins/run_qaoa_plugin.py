@@ -74,6 +74,10 @@ class RunQAOAPlugin(QAOACommandPlugin):
                 
         else:
             # --- ANALISI QUANTISTICA QAOA ---
+            console.print("\n[bold cyan]=== CONFIGURAZIONE QAOA ===[/bold cyan]")
+            p_layers = IntPrompt.ask("Inserisci il numero di layer QAOA (p)", default=runner.p_value)
+            runner.update_p(p_layers)
+            
             # 2. Scelta Ottimizzatore (COBYLA o GD)
             console.print("\n[bold cyan]Scegli l'ottimizzatore classico:[/bold cyan]")
             console.print("  [yellow]1[/yellow] - COBYLA")

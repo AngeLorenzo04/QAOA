@@ -33,6 +33,13 @@ class QAOARunner:
         self.ansatz_circuit = get_qaoa_ansatz(self.graph, self.p_value)
         self.cost_hamiltonian = get_cost_hamiltonian(self.graph)
 
+    def update_p(self, p_value: int) -> None:
+        """
+        Dynamically updates the QAOA layers (p) and reconstructs the ansatz.
+        """
+        self.p_value = p_value
+        self.ansatz_circuit = get_qaoa_ansatz(self.graph, self.p_value)
+
     def run(
         self,
         max_optimization_iterations: int = 100,

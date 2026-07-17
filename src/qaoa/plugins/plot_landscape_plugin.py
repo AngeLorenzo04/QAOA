@@ -121,6 +121,9 @@ class PlotLandscapePlugin(QAOACommandPlugin):
         graph = graph_info['graph']
         n_nodes = graph.number_of_nodes()
         
+        # Il panorama 2D dell'energia richiede p=1
+        runner.update_p(1)
+        
         if n_nodes >= 16:
             console.print("[bold red]Attenzione: N >= 16 richiede troppa memoria per calcolare lo Statevector o simulare il panorama.[/bold red]")
             proceed = Prompt.ask("Vuoi procedere lo stesso?", choices=["si", "no"], default="no")
