@@ -8,6 +8,8 @@ import time
 
 from rich.prompt import Prompt, IntPrompt
 from rich.panel import Panel
+from rich.table import Table
+import json
 
 from src.qaoa.core.plugin_interface import QAOACommandPlugin
 from src.qaoa.qaoa_runner import QAOARunner
@@ -29,14 +31,14 @@ class RunQAOAPlugin(QAOACommandPlugin):
         n_nodes = graph.number_of_nodes()
         n_edges = graph.number_of_edges()
         
-        # 1. Scelta del tipo di analisi (Classica o Quantistica QAOA)
-        console.print("\n[bold cyan]Scegli il tipo di analisi da eseguire:[/bold cyan]")
+        # 1. Scelta del tipo di analisi
+        console.print("\n[bold cyan]Scegli l'operazione da eseguire:[/bold cyan]")
         console.print("  [yellow]1[/yellow] - Analisi Classica (Risolutore Esatto Max-Cut)")
-        console.print("  [yellow]2[/yellow] - QAOA (Ottimizzazione Quantistica)")
-        analysis_choice = Prompt.ask("Scegli un'opzione", choices=["1", "2"], default="2")
-        analysis_type = "classico" if analysis_choice == "1" else "qaoa"
+        console.print("  [yellow]2[/yellow] - Consulta Risultati Benchmark QAOA")
+        console.print("  [yellow]3[/yellow] - Esegui Nuova QAOA (Custom)")
+        analysis_choice = Prompt.ask("Scegli un'opzione", choices=["1", "2", "3"], default="2")
         
-        if analysis_type == "classico":
+        if analysis_choice == "1":
             # --- ANALISI CLASSICA ---
             console.print("[green]Esecuzione del Risolutore Classico Esatto...[/green]")
             start_time = time.time()
@@ -72,9 +74,12 @@ class RunQAOAPlugin(QAOACommandPlugin):
             if plot_choice.lower() in ["si", "s"]:
                 self.plot_classical_partition(graph, exact_maxcut_val, best_bitstring)
                 
+        elif analysis_choice == "2":
+            self._consult_benchmarks(graph, graph_info, console)
+            
         else:
-            # --- ANALISI QUANTISTICA QAOA ---
-            console.print("\n[bold cyan]=== CONFIGURAZIONE QAOA ===[/bold cyan]")
+            # --- ANALISI QUANTISTICA QAOA CUSTOM ---
+            console.print("\n[bold cyan]=== CONFIGURAZIONE QAOA CUSTOM ===[/bold cyan]")
             
             console.print("\n[bold cyan]Scegli il tipo di Mixer:[/bold cyan]")
             console.print("  [yellow]1[/yellow] - Standard (Transverse-Field)")
@@ -195,6 +200,91 @@ class RunQAOAPlugin(QAOACommandPlugin):
                     )
                 elif plot_choice == "Traiettoria GD 2D/3D":
                     self.plot_gd_trajectory(graph, runner, qaoa_results, console)
+
+    def _consult_benchmarks(self, graph: nx.Graph, graph_info: dict, console) -> None:
+        benchmark_file = "data/benchmarking_results/qaoa_benchmarking_summary.json"
+        if not os.path.exists(benchmark_file):
+            console.print("[bold red]File di benchmark non trovato. Esegui prima il benchmark![/bold red]")
+            return
+
+        with open(benchmark_file, 'r') as f:
+            try:
+                results = json.load(f)
+            except json.JSONDecodeError:
+                console.print("[bold red]Errore nella lettura del file di benchmark.[/bold red]")
+                return
+
+        graph_id = graph_info['id']
+        n_vertices = graph_info['n_vertices']
+        density = graph_info['density_edges']
+        
+        filtered_results = [
+            r for r in results 
+            if r['graph_metadata']['id'] == graph_id 
+            and r['graph_metadata']['n_vertices'] == n_vertices
+            and r['graph_metadata']['density_edges'] == density
+        ]
+
+        if not filtered_results:
+            console.print(f"[bold yellow]Nessun risultato di benchmark trovato per il Grafo ID {graph_id} (N={n_vertices}, D={density:.2f}).[/bold yellow]")
+            return
+
+        table = Table(title=f"Risultati Benchmark QAOA - Grafo ID {graph_id}", show_header=True, header_style="bold magenta")
+        table.add_column("ID", style="dim", width=4)
+        table.add_column("p", justify="center")
+        table.add_column("Mixer")
+        table.add_column("Optimizer")
+        table.add_column("Best Cut", justify="right")
+        table.add_column("Approx Ratio", justify="right")
+
+        for idx, res in enumerate(filtered_results):
+            cfg = res['qaoa_config']
+            metrics = res['metrics']
+            approx = metrics.get('approximation_ratio', 0)
+            best_cut = metrics.get('qaoa_cut_value', 0)
+            
+            table.add_row(
+                str(idx + 1),
+                str(cfg.get('p_value', '-')),
+                cfg.get('mixer', '-'),
+                cfg.get('optimizer', '-'),
+                str(best_cut),
+                f"{approx:.4f}"
+            )
+
+        console.print(table)
+        
+        console.print("\nInserisci l'ID del risultato per visualizzarne la Dashboard, oppure '0' per uscire.")
+        choice_str = Prompt.ask("Scegli un ID", default="0")
+        try:
+            choice_idx = int(choice_str)
+        except ValueError:
+            return
+            
+        if choice_idx <= 0 or choice_idx > len(filtered_results):
+            return
+            
+        selected_res = filtered_results[choice_idx - 1]
+        
+        quasi_dist = selected_res['qaoa_results']['quasi_distribution']
+        n_nodes = graph.number_of_nodes()
+        probs = np.zeros(2**n_nodes)
+        for bitstring, prob in quasi_dist.items():
+            state_int = int(bitstring, 2)
+            probs[state_int] = prob
+            
+        metrics = selected_res['metrics']
+        cfg = selected_res['qaoa_config']
+        
+        plot_qaoa_dashboard(
+            graph=graph,
+            k=2,
+            probs=probs,
+            best_bitstring=selected_res['qaoa_results']['best_measured_bitstring'],
+            cost_history=metrics.get('optimization_history', []),
+            trajectory_params=metrics.get('trajectory_params', []),
+            title=f"QAOA Benchmark N={n_nodes}, D={density:.2f}, ID={graph_id} | p={cfg['p_value']}, {cfg['mixer']}, {cfg['optimizer']}"
+        )
 
     def plot_classical_partition(self, graph: nx.Graph, exact_maxcut_val: int, best_bitstring: str) -> None:
         n_nodes = graph.number_of_nodes()
