@@ -1,8 +1,19 @@
 import os
 import json
 import networkx as nx
+import numpy as np
 from typing import List
 from tqdm import tqdm
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
 
 from rich.prompt import Prompt, IntPrompt
 
@@ -259,7 +270,7 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                                     }
                                 }
                                 with open(qaoa_output_filepath, 'w') as f:
-                                    json.dump(qaoa_result_entry, f, indent=4, sort_keys=True)
+                                    json.dump(qaoa_result_entry, f, indent=4, sort_keys=True, cls=NpEncoder)
                                 pbar.update(1)
                             
             console.print("[bold cyan]Fase Quantistica Completata.[/bold cyan]")

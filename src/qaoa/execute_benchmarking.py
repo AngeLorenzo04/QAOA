@@ -2,8 +2,19 @@ import os
 import json
 import argparse
 import networkx as nx
-from typing import Dict, Any, List # Added List to imports
+import numpy as np
+from typing import Dict, Any, List
 from tqdm import tqdm
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
 from src.data.graph_dataset_generator import generate_and_save_graphs, load_graphs
 from src.data.exact_maxcut_solver import find_exact_maxcut, find_exact_maxcut_ilp
 from src.qaoa.qaoa_runner import QAOARunner # Import QAOARunner # Import the ansatz function
@@ -82,7 +93,7 @@ def execute_benchmarking_setup():
         }
         
         with open(result_filepath, 'w') as f:
-            json.dump(full_result, f, indent=4)
+            json.dump(full_result, f, indent=4, cls=NpEncoder)
         print(f"  Saved ILP MaxCut results to {os.path.basename(result_filepath)}")
         
     print("\n--- Benchmarking Setup Complete ---")
@@ -220,7 +231,7 @@ def run_qaoa_benchmarking(optimizers_list: List[str] = None):
                                 }
                             }
                             with open(qaoa_output_filepath, 'w') as f:
-                                json.dump(qaoa_result_entry, f, indent=4, sort_keys=True)
+                                json.dump(qaoa_result_entry, f, indent=4, sort_keys=True, cls=NpEncoder)
                                 
                             tqdm.write(f"  Saved to {qaoa_output_filename}. Best cut: {qaoa_cut_value}, Approx Ratio: {approximation_ratio:.4f}")
                             pbar.update(1)
