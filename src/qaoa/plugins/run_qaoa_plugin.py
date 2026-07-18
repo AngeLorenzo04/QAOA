@@ -202,28 +202,31 @@ class RunQAOAPlugin(QAOACommandPlugin):
                     self.plot_gd_trajectory(graph, runner, qaoa_results, console)
 
     def _consult_benchmarks(self, graph: nx.Graph, graph_info: dict, console) -> None:
-        benchmark_file = "data/benchmarking_results/qaoa_benchmarking_summary.json"
-        if not os.path.exists(benchmark_file):
-            console.print("[bold red]File di benchmark non trovato. Esegui prima il benchmark![/bold red]")
+        benchmark_dir = "data/benchmarking_results"
+        if not os.path.exists(benchmark_dir):
+            console.print("[bold red]Directory di benchmark non trovata. Esegui prima il benchmark![/bold red]")
             return
-
-        with open(benchmark_file, 'r') as f:
-            try:
-                results = json.load(f)
-            except json.JSONDecodeError:
-                console.print("[bold red]Errore nella lettura del file di benchmark.[/bold red]")
-                return
 
         graph_id = graph_info['id']
         n_vertices = graph_info['n_vertices']
         density = graph_info['density_edges']
         
-        filtered_results = [
-            r for r in results 
-            if r['graph_metadata']['id'] == graph_id 
-            and r['graph_metadata']['n_vertices'] == n_vertices
-            and r['graph_metadata']['density_edges'] == density
-        ]
+        # Cerca file corrispondenti a questo grafo
+        file_prefix = f"qaoa_n{n_vertices}_d{density:.2f}_id{graph_id}_"
+        filtered_results = []
+        
+        import glob
+        pattern = os.path.join(benchmark_dir, f"{file_prefix}*.json")
+        matching_files = glob.glob(pattern)
+        
+        for file_path in matching_files:
+            with open(file_path, 'r') as f:
+                try:
+                    res = json.load(f)
+                    filtered_results.append(res)
+                except json.JSONDecodeError:
+                    console.print(f"[bold yellow]Avviso: impossibile leggere {file_path}[/bold yellow]")
+                    continue
 
         if not filtered_results:
             console.print(f"[bold yellow]Nessun risultato di benchmark trovato per il Grafo ID {graph_id} (N={n_vertices}, D={density:.2f}).[/bold yellow]")

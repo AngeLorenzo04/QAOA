@@ -166,8 +166,6 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                     valid_graphs_info.append(g_info)
                     
             total_runs = len(valid_graphs_info) * len(p_layers_to_run) * len(active_optimizers) * len(active_mixers)
-            qaoa_results = []
-            
             if total_runs == 0:
                 console.print("[yellow]Nessun grafo o configurazione valida trovata per QAOA.[/yellow]")
                 return
@@ -196,6 +194,13 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                                         gd_meth = parts[1]
                                     if len(parts) > 2:
                                         num_starts = int(parts[2])
+
+                                qaoa_output_filename = f"qaoa_n{n_nodes}_d{g_info['density_edges']:.2f}_id{g_info['id']}_p{p_val}_mix{mixer_type}_opt{optimizer_config}.json"
+                                qaoa_output_filepath = os.path.join(BENCHMARK_RESULTS_DIR, qaoa_output_filename)
+                                
+                                if os.path.exists(qaoa_output_filepath):
+                                    pbar.update(1)
+                                    continue
                                 
                                 runner = QAOARunner(
                                     graph=graph,
@@ -253,12 +258,8 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                                         'total_shots': qaoa_run_results['metrics']['total_shots']
                                     }
                                 }
-                                qaoa_results.append(qaoa_result_entry)
+                                with open(qaoa_output_filepath, 'w') as f:
+                                    json.dump(qaoa_result_entry, f, indent=4, sort_keys=True)
                                 pbar.update(1)
                             
-            # Save summary
-            qaoa_output_filepath = os.path.join(BENCHMARK_RESULTS_DIR, "qaoa_benchmarking_summary.json")
-            with open(qaoa_output_filepath, 'w') as f:
-                json.dump(qaoa_results, f, indent=4, sort_keys=True)
-                
-            console.print(f"[bold cyan]Fase Quantistica Completata. Sommario salvato in: {qaoa_output_filepath}[/bold cyan]")
+            console.print("[bold cyan]Fase Quantistica Completata.[/bold cyan]")

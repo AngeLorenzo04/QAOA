@@ -129,8 +129,6 @@ def run_qaoa_benchmarking(optimizers_list: List[str] = None):
 
     total_runs = len(valid_graphs_info) * len(P_VALUES) * len(MIXERS) * len(ENCODINGS) * len(active_optimizers)
     
-    qaoa_results = []
-
     with tqdm(total=total_runs, desc="QAOA Benchmarking", unit="run") as pbar:
         for graph_info in valid_graphs_info:
             graph: nx.Graph = graph_info['graph']
@@ -153,6 +151,14 @@ def run_qaoa_benchmarking(optimizers_list: List[str] = None):
                                 gd_meth = parts[1]
                                 if len(parts) > 2:
                                     num_starts = int(parts[2])
+
+                            qaoa_output_filename = f"qaoa_n{n_nodes}_d{graph_info['density_edges']:.2f}_id{graph_info['id']}_p{p_val}_mix{mixer_type}_opt{optimizer_config}.json"
+                            qaoa_output_filepath = os.path.join(BENCHMARK_RESULTS_DIR, qaoa_output_filename)
+                            
+                            if os.path.exists(qaoa_output_filepath):
+                                tqdm.write(f"  Skipping (already exists): {qaoa_output_filename}")
+                                pbar.update(1)
+                                continue
 
                             tqdm.write(f"  Config: p={p_val}, mixer={mixer_type}, encoding={encoding_type}, optimizer={optimizer_config}")
         
@@ -213,16 +219,11 @@ def run_qaoa_benchmarking(optimizers_list: List[str] = None):
                                     'total_shots': qaoa_run_results['metrics']['total_shots']
                                 }
                             }
-                            qaoa_results.append(qaoa_result_entry)
-                            tqdm.write(f"  QAOA run complete. Best cut: {qaoa_cut_value}, Approx Ratio: {approximation_ratio:.4f}")
+                            with open(qaoa_output_filepath, 'w') as f:
+                                json.dump(qaoa_result_entry, f, indent=4, sort_keys=True)
+                                
+                            tqdm.write(f"  Saved to {qaoa_output_filename}. Best cut: {qaoa_cut_value}, Approx Ratio: {approximation_ratio:.4f}")
                             pbar.update(1)
-    
-    # --- Save QAOA Benchmarking Results ---
-    qaoa_output_filepath = os.path.join(BENCHMARK_RESULTS_DIR, "qaoa_benchmarking_summary.json")
-    # Use json.dumps with sort_keys=True for consistent output (useful for diffs)
-    with open(qaoa_output_filepath, 'w') as f:
-        json.dump(qaoa_results, f, indent=4, sort_keys=True)
-    print(f"\nSaved QAOA benchmarking summary to {qaoa_output_filepath}")
 
     print("\n--- QAOA Benchmarking Complete ---")
 
