@@ -44,25 +44,31 @@ class BenchmarkingPlugin(QAOACommandPlugin):
         console.print("  [bold yellow]b[/bold yellow]: Entrambe (Classica + Quantistica)")
         mode = Prompt.ask("Seleziona modalità", choices=["c", "q", "b"], default="b")
         
-        # 2. Seleziona ottimizzatore per la parte quantistica
+        # 2. Seleziona configurazioni per la parte quantistica
         active_optimizers = ["COBYLA"]
         p_layers_to_run = [1, 2, 3]
+        active_mixers = ["standard"]
         
         if mode in ["q", "b"]:
+            console.print("Ottimizzatori disponibili: COBYLA, GD_adam_1, GD_adam_4, GD_vanilla_2, ecc.")
             opt_choice = Prompt.ask(
                 "Scegli gli ottimizzatori classici da testare (separati da spazio o 'ALL')",
                 default="COBYLA"
             ).strip()
             if opt_choice.upper() == "ALL":
-                active_optimizers = ["COBYLA", "SLSQP", "GD"]
+                active_optimizers = [
+                    "COBYLA", 
+                    "GD_adam_1", "GD_adam_2", "GD_adam_4", "GD_adam_6",
+                    "GD_vanilla_1", "GD_vanilla_2", "GD_vanilla_4", "GD_vanilla_6"
+                ]
             else:
-                active_optimizers = [o.strip() for o in opt_choice.split() if o.strip() in ["COBYLA", "SLSQP", "GD"]]
+                active_optimizers = [o.strip() for o in opt_choice.split() if o.strip()]
                 if not active_optimizers:
                     active_optimizers = ["COBYLA"]
                     
             p_choice = Prompt.ask(
                 "Scegli i layer QAOA (p) da testare (separati da spazio o 'ALL')",
-                default="1"
+                default="1 2 3"
             ).strip()
             if p_choice.upper() == "ALL":
                 p_layers_to_run = [1, 2, 3]
@@ -70,6 +76,17 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                 p_layers_to_run = [int(p) for p in p_choice.split() if p.strip().isdigit()]
                 if not p_layers_to_run:
                     p_layers_to_run = [1]
+                    
+            mixer_choice = Prompt.ask(
+                "Scegli i Mixer da testare ('standard', 'grover' separati da spazio o 'ALL')",
+                default="standard"
+            ).strip()
+            if mixer_choice.upper() == "ALL":
+                active_mixers = ["standard", "grover"]
+            else:
+                active_mixers = [m.strip().lower() for m in mixer_choice.split() if m.strip().lower() in ["standard", "grover"]]
+                if not active_mixers:
+                    active_mixers = ["standard"]
         
         # --- Fase Classica ---
         if mode in ["c", "b"]:
@@ -148,11 +165,11 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                 else:
                     valid_graphs_info.append(g_info)
                     
-            total_runs = len(valid_graphs_info) * len(p_layers_to_run) * len(active_optimizers)
+            total_runs = len(valid_graphs_info) * len(p_layers_to_run) * len(active_optimizers) * len(active_mixers)
             qaoa_results = []
             
             if total_runs == 0:
-                console.print("[yellow]Nessun grafo valido per QAOA (N <= 20 con Max-Cut disponibile) trovato.[/yellow]")
+                console.print("[yellow]Nessun grafo o configurazione valida trovata per QAOA.[/yellow]")
                 return
                 
             console.print(f"Esecuzione di {total_runs} simulazioni QAOA...")
@@ -164,63 +181,80 @@ class BenchmarkingPlugin(QAOACommandPlugin):
                     exact_max_cut_value = graph.graph['exact_max_cut_value']
                     
                     for p_val in p_layers_to_run:
-                        for optimizer_method in active_optimizers:
-                            pbar.set_postfix_str(f"N={n_nodes} D={g_info['density_edges']:.2f} ID={g_info['id']} Opt={optimizer_method} p={p_val}")
-                            
-                            runner = QAOARunner(
-                                graph=graph,
-                                p_value=p_val,
-                                mixer_type="standard",
-                                encoding_type="binary"
-                            )
-                            
-                            # Run
-                            qaoa_run_results = runner.run(
-                                max_optimization_iterations=100,
-                                optimizer_method=optimizer_method,
-                                shots=1024,
-                                epsilon=1e-5,
-                                timeout=180.0
-                            )
-                            
-                            qaoa_cut_value = qaoa_run_results['best_measured_cut_value']
-                            approximation_ratio = qaoa_cut_value / exact_max_cut_value if exact_max_cut_value > 0 else 0.0
-                            
-                            qaoa_result_entry = {
-                                'graph_metadata': {
-                                    'n_vertices': g_info['n_vertices'],
-                                    'density_edges': g_info['density_edges'],
-                                    'seed': g_info['seed'],
-                                    'id': g_info['id'],
-                                    'filepath': os.path.join(GRAPH_OUTPUT_DIR, f"graph_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}.gpickle")
-                                },
-                                'exact_max_cut_value': exact_max_cut_value,
-                                'qaoa_config': {
-                                    'p_value': p_val,
-                                    'mixer': "standard",
-                                    'encoding': "binary",
-                                    'optimizer': optimizer_method
-                                },
-                                'qaoa_results': {
-                                    'optimal_params': qaoa_run_results['optimal_params'],
-                                    'qaoa_expected_cut_value': qaoa_run_results['qaoa_expected_cut_value'],
-                                    'best_measured_cut_value': qaoa_run_results['best_measured_cut_value'],
-                                    'best_measured_bitstring': qaoa_run_results['best_measured_bitstring'],
-                                    'quasi_distribution': qaoa_run_results['quasi_distribution'],
-                                },
-                                'metrics': {
-                                    'qaoa_cut_value': qaoa_cut_value,
-                                    'approximation_ratio': approximation_ratio,
-                                    'circuit_depth': qaoa_run_results['metrics']['circuit_depth'],
-                                    'num_parameters': qaoa_run_results['metrics']['num_parameters'],
-                                    'optimization_iterations': qaoa_run_results['metrics']['optimization_iterations'],
-                                    'termination_reason': qaoa_run_results['metrics'].get('termination_reason', 'optimizer_completed'),
-                                    'optimization_history': qaoa_run_results['metrics']['optimization_history'],
-                                    'total_shots': qaoa_run_results['metrics']['total_shots']
+                        for mixer_type in active_mixers:
+                            for optimizer_config in active_optimizers:
+                                pbar.set_postfix_str(f"N={n_nodes} Opt={optimizer_config} p={p_val} Mix={mixer_type}")
+                                
+                                num_starts = 1
+                                opt_method = optimizer_config
+                                gd_meth = "adam"
+                                
+                                if optimizer_config.startswith("GD_"):
+                                    opt_method = "GD"
+                                    parts = optimizer_config.split("_")
+                                    if len(parts) > 1:
+                                        gd_meth = parts[1]
+                                    if len(parts) > 2:
+                                        num_starts = int(parts[2])
+                                
+                                runner = QAOARunner(
+                                    graph=graph,
+                                    p_value=p_val,
+                                    mixer_type=mixer_type,
+                                    encoding_type="binary"
+                                )
+                                
+                                # Run
+                                qaoa_run_results = runner.run(
+                                    max_optimization_iterations=100,
+                                    optimizer_method=opt_method,
+                                    gd_method=gd_meth,
+                                    num_starts=num_starts,
+                                    shots=1024,
+                                    epsilon=1e-5,
+                                    timeout=180.0
+                                )
+                                
+                                qaoa_cut_value = qaoa_run_results['best_measured_cut_value']
+                                approximation_ratio = qaoa_cut_value / exact_max_cut_value if exact_max_cut_value > 0 else 0.0
+                                
+                                qaoa_result_entry = {
+                                    'graph_metadata': {
+                                        'n_vertices': g_info['n_vertices'],
+                                        'density_edges': g_info['density_edges'],
+                                        'seed': g_info['seed'],
+                                        'id': g_info['id'],
+                                        'filepath': os.path.join(GRAPH_OUTPUT_DIR, f"graph_n{g_info['n_vertices']}_d{g_info['density_edges']:.2f}_id{g_info['id']}.gpickle")
+                                    },
+                                    'exact_max_cut_value': exact_max_cut_value,
+                                    'qaoa_config': {
+                                        'p_value': p_val,
+                                        'mixer': mixer_type,
+                                        'encoding': "binary",
+                                        'optimizer': optimizer_config
+                                    },
+                                    'qaoa_results': {
+                                        'optimal_params': qaoa_run_results['optimal_params'],
+                                        'qaoa_expected_cut_value': qaoa_run_results['qaoa_expected_cut_value'],
+                                        'best_measured_cut_value': qaoa_run_results['best_measured_cut_value'],
+                                        'best_measured_bitstring': qaoa_run_results['best_measured_bitstring'],
+                                        'quasi_distribution': qaoa_run_results['quasi_distribution'],
+                                    },
+                                    'metrics': {
+                                        'qaoa_cut_value': qaoa_cut_value,
+                                        'approximation_ratio': approximation_ratio,
+                                        'circuit_depth': qaoa_run_results['metrics']['circuit_depth'],
+                                        'num_parameters': qaoa_run_results['metrics']['num_parameters'],
+                                        'optimization_iterations': qaoa_run_results['metrics']['optimization_iterations'],
+                                        'termination_reason': qaoa_run_results['metrics'].get('termination_reason', 'optimizer_completed'),
+                                        'optimization_history': qaoa_run_results['metrics']['optimization_history'],
+                                        'trajectory_params': qaoa_run_results['metrics'].get('trajectory_params', []),
+                                        'all_trajectories': qaoa_run_results['metrics'].get('all_trajectories', []),
+                                        'total_shots': qaoa_run_results['metrics']['total_shots']
+                                    }
                                 }
-                            }
-                            qaoa_results.append(qaoa_result_entry)
-                            pbar.update(1)
+                                qaoa_results.append(qaoa_result_entry)
+                                pbar.update(1)
                             
             # Save summary
             qaoa_output_filepath = os.path.join(BENCHMARK_RESULTS_DIR, "qaoa_benchmarking_summary.json")

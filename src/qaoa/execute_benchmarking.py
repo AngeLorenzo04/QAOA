@@ -19,7 +19,11 @@ BENCHMARK_RESULTS_DIR = "data/benchmarking_results"
 P_VALUES: List[int] = [1, 2, 3] # Number of QAOA layers
 MIXERS: List[str] = ["standard", "grover"] # Pauli-X (standard) and Grover
 ENCODINGS: List[str] = ["binary"] # Currently only "binary" is implemented
-OPTIMIZERS: List[str] = ["COBYLA", "GD_adam", "GD_vanilla"] # Evaluated optimizers
+OPTIMIZERS: List[str] = [
+    "COBYLA", 
+    "GD_adam_1", "GD_adam_2", "GD_adam_4", "GD_adam_6",
+    "GD_vanilla_1", "GD_vanilla_2", "GD_vanilla_4", "GD_vanilla_6"
+] # Evaluated optimizers
 
 def execute_benchmarking_setup():
     """
@@ -139,15 +143,16 @@ def run_qaoa_benchmarking(optimizers_list: List[str] = None):
                 for mixer_type in MIXERS:
                     for encoding_type in ENCODINGS:
                         for optimizer_config in active_optimizers:
-                            if optimizer_config == "GD_adam":
+                            num_starts = 1
+                            opt_method = optimizer_config
+                            gd_meth = "adam"
+                            
+                            if optimizer_config.startswith("GD_"):
                                 opt_method = "GD"
-                                gd_meth = "adam"
-                            elif optimizer_config == "GD_vanilla":
-                                opt_method = "GD"
-                                gd_meth = "vanilla"
-                            else:
-                                opt_method = optimizer_config
-                                gd_meth = "adam"
+                                parts = optimizer_config.split("_")
+                                gd_meth = parts[1]
+                                if len(parts) > 2:
+                                    num_starts = int(parts[2])
 
                             tqdm.write(f"  Config: p={p_val}, mixer={mixer_type}, encoding={encoding_type}, optimizer={optimizer_config}")
         
@@ -164,6 +169,7 @@ def run_qaoa_benchmarking(optimizers_list: List[str] = None):
                                 max_optimization_iterations=100,
                                 optimizer_method=opt_method,
                                 gd_method=gd_meth,
+                                num_starts=num_starts,
                                 shots=1024,
                                 epsilon=1e-5,
                                 timeout=180.0
@@ -203,6 +209,7 @@ def run_qaoa_benchmarking(optimizers_list: List[str] = None):
                                     'termination_reason': qaoa_run_results['metrics'].get('termination_reason', 'optimizer_completed'),
                                     'optimization_history': qaoa_run_results['metrics']['optimization_history'],
                                     'trajectory_params': qaoa_run_results['metrics'].get('trajectory_params', []),
+                                    'all_trajectories': qaoa_run_results['metrics'].get('all_trajectories', []),
                                     'total_shots': qaoa_run_results['metrics']['total_shots']
                                 }
                             }
