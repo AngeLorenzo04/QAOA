@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib.lines import Line2D
 
 def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstring: str, 
-                        node_colors: dict = None, cost_history: list = None, title: str = None) -> None:
+                        node_colors: dict = None, cost_history: list = None, trajectory_params: list = None, title: str = None) -> None:
     """
     Generate a unified 1x3 dashboard for QAOA analysis (Max-Cut or Max-k-Cut).
     
@@ -15,6 +15,7 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
         best_bitstring (str): The bitstring with the highest probability.
         node_colors (dict, optional): Mapping node -> color index. If None, derived from best_bitstring (for k=2).
         cost_history (list, optional): History of cost values during optimization.
+        trajectory_params (list, optional): History of parameter values during optimization.
         title (str, optional): Custom title for the dashboard.
     """
     plt.style.use('seaborn-v0_8-whitegrid')
@@ -24,34 +25,34 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
     if title is None:
         title = f"QAOA Max-{k}-Cut Analysis Dashboard (Solution: {best_bitstring})"
         
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
     fig.suptitle(title, fontsize=20, fontweight='bold', y=1.05)
     
     pos = nx.spring_layout(graph, seed=42)
     
     # --- 1. Probabilities ---
-    ax2 = axes[0]
+    ax1 = axes[0]
     
     all_labels = [format(i, f'0{n_qubits}b') for i in range(2**n_qubits)]
     sorted_pairs = sorted(zip(all_labels, probs), key=lambda x: x[1], reverse=True)
     
     if len(sorted_pairs) > 16:
         display_pairs = sorted_pairs[:16]
-        ax2.set_title("1. Measurement Probabilities (Top 16)", fontsize=16)
+        ax1.set_title("1. Measurement Probabilities (Top 16)", fontsize=16)
     else:
         display_pairs = sorted_pairs
-        ax2.set_title("1. Measurement Probabilities (Sorted)", fontsize=16)
+        ax1.set_title("1. Measurement Probabilities (Sorted)", fontsize=16)
         
     display_labels = [x[0] for x in display_pairs]
     display_probs = [x[1] for x in display_pairs]
     
     colors = ['tab:blue' if label == best_bitstring else 'lightgray' for label in display_labels]
-    ax2.bar(display_labels, display_probs, color=colors)
-    ax2.set_ylabel("Probability")
-    ax2.tick_params(axis='x', rotation=45)
+    ax1.bar(display_labels, display_probs, color=colors)
+    ax1.set_ylabel("Probability")
+    ax1.tick_params(axis='x', rotation=45)
     
     # --- 2. Result Partition ---
-    ax3 = axes[1]
+    ax2 = axes[1]
     
     # Determine node colors and partition groups
     if k == 2 and node_colors is None:
@@ -92,19 +93,19 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
     if exact_val != -1 and exact_val is not None and exact_val > 0:
         ratio = len(cut_edges) / exact_val
         if expected_cost is not None:
-            ax3.set_title(f"2. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}, Costo Atteso: {expected_cost:.4f}, Costo Ottimo: {-exact_val})", fontsize=16)
+            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}, Costo Atteso: {expected_cost:.4f})", fontsize=16)
         else:
-            ax3.set_title(f"2. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}, Costo: {-len(cut_edges)}, Costo Ottimo: {-exact_val})", fontsize=16)
+            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}, Costo: {-len(cut_edges)})", fontsize=16)
     else:
         if expected_cost is not None:
-            ax3.set_title(f"2. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}, Costo Atteso: {expected_cost:.4f})", fontsize=16)
+            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}, Costo Atteso: {expected_cost:.4f})", fontsize=16)
         else:
-            ax3.set_title(f"2. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}, Costo: {-len(cut_edges)})", fontsize=16)
+            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}, Costo: {-len(cut_edges)})", fontsize=16)
 
-    nx.draw_networkx_edges(graph, pos, ax=ax3, edgelist=uncut_edges, width=1.0, edge_color='gray', alpha=0.3)
-    nx.draw_networkx_edges(graph, pos, ax=ax3, edgelist=cut_edges, width=2.0, edge_color='darkblue', style='dashed')
-    nx.draw_networkx_nodes(graph, pos, ax=ax3, node_color=draw_colors, node_size=800, edgecolors='black')
-    nx.draw_networkx_labels(graph, pos, ax=ax3, font_size=14, font_weight='bold')
+    nx.draw_networkx_edges(graph, pos, ax=ax2, edgelist=uncut_edges, width=1.0, edge_color='gray', alpha=0.3)
+    nx.draw_networkx_edges(graph, pos, ax=ax2, edgelist=cut_edges, width=2.0, edge_color='darkblue', style='dashed')
+    nx.draw_networkx_nodes(graph, pos, ax=ax2, node_color=draw_colors, node_size=800, edgecolors='black')
+    nx.draw_networkx_labels(graph, pos, ax=ax2, font_size=14, font_weight='bold')
     
     # Legend
     legend_elements = []
@@ -121,8 +122,36 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
         ]
     
     legend_elements.append(Line2D([0], [0], color='darkblue', lw=2, ls='--', label='Cut Edge'))
-    ax3.legend(handles=legend_elements, loc='best', fontsize=10)
-    ax3.axis('off')
+    ax2.legend(handles=legend_elements, loc='best', fontsize=10)
+    ax2.axis('off')
+
+    # --- 3. Parameter Evolution ---
+    ax3 = axes[2]
+    
+    if trajectory_params is not None and len(trajectory_params) > 0:
+        params_array = np.array(trajectory_params)
+        n_params = params_array.shape[1]
+        p = n_params // 2
+        
+        iterations = range(len(trajectory_params))
+        
+        # Plot Betas (H_M)
+        for i in range(p):
+            ax3.plot(iterations, params_array[:, i], label=f'$\\beta_{{{i+1}}}$ ($H_M$ mixer)', linestyle='--')
+            
+        # Plot Gammas (H_C)
+        for i in range(p):
+            ax3.plot(iterations, params_array[:, p+i], label=f'$\\gamma_{{{i+1}}}$ ($H_C$ cost)', linestyle='-')
+            
+        ax3.set_xlabel('Iterazione', fontsize=12)
+        ax3.set_ylabel('Angolo (rad)', fontsize=12)
+        ax3.set_title("3. Variazione parametri $\\gamma$ e $\\beta$", fontsize=16)
+        ax3.grid(True, linestyle=':', alpha=0.6)
+        ax3.legend(loc='best', fontsize=10)
+    else:
+        ax3.text(0.5, 0.5, 'Nessun dato sulla traiettoria', horizontalalignment='center', verticalalignment='center', transform=ax3.transAxes)
+        ax3.axis('off')
+        ax3.set_title("3. Variazione parametri $\\gamma$ e $\\beta$", fontsize=16)
 
     plt.tight_layout()
     plt.show()

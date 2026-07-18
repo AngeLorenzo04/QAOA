@@ -190,6 +190,7 @@ class RunQAOAPlugin(QAOACommandPlugin):
                         probs=probs,
                         best_bitstring=best_bitstring,
                         cost_history=qaoa_results['metrics']['optimization_history'],
+                        trajectory_params=qaoa_results['metrics']['trajectory_params'],
                         title=f"QAOA N={n_nodes}, D={graph_info['density_edges']:.2f}, ID={graph_info['id']} ({optimizer})"
                     )
                 elif plot_choice == "Traiettoria GD 2D/3D":
