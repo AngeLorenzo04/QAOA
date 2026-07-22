@@ -38,18 +38,19 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
     
     if len(sorted_pairs) > 16:
         display_pairs = sorted_pairs[:16]
-        ax1.set_title("1. Measurement Probabilities (Top 16)", fontsize=16)
+        ax1.set_title("1. Measurement Probabilities (Top 16)", fontsize=14, fontweight='bold', pad=10)
     else:
         display_pairs = sorted_pairs
-        ax1.set_title("1. Measurement Probabilities (Sorted)", fontsize=16)
+        ax1.set_title("1. Measurement Probabilities (Sorted)", fontsize=14, fontweight='bold', pad=10)
         
     display_labels = [x[0] for x in display_pairs]
     display_probs = [x[1] for x in display_pairs]
     
     colors = ['tab:blue' if label == best_bitstring else 'lightgray' for label in display_labels]
     ax1.bar(display_labels, display_probs, color=colors)
-    ax1.set_ylabel("Probability")
-    ax1.tick_params(axis='x', rotation=45)
+    ax1.set_ylabel("Probability", fontsize=12)
+    ax1.tick_params(axis='x', rotation=45, labelsize=10)
+    ax1.tick_params(axis='y', labelsize=10)
     
     # --- 2. Result Partition ---
     ax2 = axes[1]
@@ -93,14 +94,14 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
     if exact_val != -1 and exact_val is not None and exact_val > 0:
         ratio = len(cut_edges) / exact_val
         if expected_cost is not None:
-            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}, Costo Atteso: {expected_cost:.4f})", fontsize=16)
+            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}\nCosto Atteso: {expected_cost:.4f}, Costo Migliore: {-len(cut_edges)})", fontsize=14, fontweight='bold', pad=10)
         else:
-            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}, Costo: {-len(cut_edges)})", fontsize=16)
+            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Taglio: {len(cut_edges)}/{exact_val}, Ratio: {ratio:.4f}\nCosto Migliore: {-len(cut_edges)})", fontsize=14, fontweight='bold', pad=10)
     else:
         if expected_cost is not None:
-            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}, Costo Atteso: {expected_cost:.4f})", fontsize=16)
+            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}\nCosto Atteso: {expected_cost:.4f}, Costo Migliore: {-len(cut_edges)})", fontsize=14, fontweight='bold', pad=10)
         else:
-            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}, Costo: {-len(cut_edges)})", fontsize=16)
+            ax2.set_title(f"2. Max-{k}-Cut Partition\n(Rami tagliati: {len(cut_edges)}, Costo Migliore: {-len(cut_edges)})", fontsize=14, fontweight='bold', pad=10)
 
     nx.draw_networkx_edges(graph, pos, ax=ax2, edgelist=uncut_edges, width=1.0, edge_color='gray', alpha=0.3)
     nx.draw_networkx_edges(graph, pos, ax=ax2, edgelist=cut_edges, width=2.0, edge_color='darkblue', style='dashed')
@@ -145,13 +146,13 @@ def plot_qaoa_dashboard(graph: nx.Graph, k: int, probs: np.ndarray, best_bitstri
             
         ax3.set_xlabel('Iterazione', fontsize=12)
         ax3.set_ylabel('Angolo (rad)', fontsize=12)
-        ax3.set_title("3. Variazione parametri $\\gamma$ e $\\beta$", fontsize=16)
+        ax3.set_title("3. Variazione parametri $\\gamma$ e $\\beta$", fontsize=14, fontweight='bold', pad=10)
         ax3.grid(True, linestyle=':', alpha=0.6)
         ax3.legend(loc='best', fontsize=10)
     else:
         ax3.text(0.5, 0.5, 'Nessun dato sulla traiettoria', horizontalalignment='center', verticalalignment='center', transform=ax3.transAxes)
         ax3.axis('off')
-        ax3.set_title("3. Variazione parametri $\\gamma$ e $\\beta$", fontsize=16)
+        ax3.set_title("3. Variazione parametri $\\gamma$ e $\\beta$", fontsize=14, fontweight='bold', pad=10)
 
     plt.tight_layout()
     plt.show()

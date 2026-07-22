@@ -183,10 +183,10 @@ def plot_gradient_descent_trajectory():
 
     if exact_maxcut_val != -1 and exact_maxcut_val is not None and exact_maxcut_val > 0:
         ratio = len(cut_edges) / exact_maxcut_val
-        ax1.set_title(f"1. Problem Graph & Max Cut Solution\nBest Partition: {best_bitstring} (Taglio: {len(cut_edges)}/{exact_maxcut_val}, Ratio: {ratio:.4f}, Costo Atteso: {-trajectory_cuts[-1]:.4f})\n"
+        ax1.set_title(f"1. Problem Graph & Max Cut Solution\nBest Partition: {best_bitstring} (Taglio: {len(cut_edges)}/{exact_maxcut_val}, Ratio: {ratio:.4f}, Costo Atteso: {-trajectory_cuts[-1]:.4f}, Costo Migliore: {-len(cut_edges)})\n"
                       f"Optimal Parameters: $\\gamma$ = {gammas[-1]:.4f}, $\\beta$ = {betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
     else:
-        ax1.set_title(f"1. Problem Graph & Max Cut Solution\nBest Partition: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Costo Atteso: {-trajectory_cuts[-1]:.4f})\n"
+        ax1.set_title(f"1. Problem Graph & Max Cut Solution\nBest Partition: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Costo Atteso: {-trajectory_cuts[-1]:.4f}, Costo Migliore: {-len(cut_edges)})\n"
                       f"Optimal Parameters: $\\gamma$ = {gammas[-1]:.4f}, $\\beta$ = {betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
     ax1.axis('off')
     

@@ -427,10 +427,10 @@ class RunQAOAPlugin(QAOACommandPlugin):
         
         if exact_maxcut_val != -1 and exact_maxcut_val is not None and exact_maxcut_val > 0:
             ratio = len(cut_edges) / exact_maxcut_val
-            ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Taglio: {len(cut_edges)}/{exact_maxcut_val}, Ratio: {ratio:.4f}, Costo Atteso: {expected_cost:.4f})\n"
+            ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Taglio: {len(cut_edges)}/{exact_maxcut_val}, Ratio: {ratio:.4f}, Costo Atteso: {expected_cost:.4f}, Costo Migliore: {-len(cut_edges)})\n"
                           f"Parametri Ottimi: $\\gamma$ = {best_gammas[-1]:.4f}, $\\beta$ = {best_betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
         else:
-            ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Costo Atteso: {expected_cost:.4f})\n"
+            ax1.set_title(f"1. Grafo e Taglio Massimo\nMigliore Partizione: {best_bitstring} (Rami tagliati: {len(cut_edges)}, Costo Atteso: {expected_cost:.4f}, Costo Migliore: {-len(cut_edges)})\n"
                           f"Parametri Ottimi: $\\gamma$ = {best_gammas[-1]:.4f}, $\\beta$ = {best_betas[-1]:.4f}", fontsize=13, fontweight='bold', pad=15)
         ax1.axis('off')
         
