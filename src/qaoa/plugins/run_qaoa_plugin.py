@@ -186,6 +186,7 @@ class RunQAOAPlugin(QAOACommandPlugin):
                     
                 if plot_choice == "Dashboard standard 1x3":
                     probs = np.zeros(2**n_nodes)
+                    most_probable_bitstring = max(quasi_dist.items(), key=lambda x: x[1])[0]
                     for bitstring, prob in quasi_dist.items():
                         state_int = int(bitstring, 2)
                         probs[state_int] = prob
@@ -193,7 +194,7 @@ class RunQAOAPlugin(QAOACommandPlugin):
                         graph=graph,
                         k=2,
                         probs=probs,
-                        best_bitstring=best_bitstring,
+                        best_bitstring=most_probable_bitstring,
                         cost_history=qaoa_results['metrics']['optimization_history'],
                         trajectory_params=qaoa_results['metrics']['trajectory_params'],
                         title=f"QAOA N={n_nodes}, D={graph_info['density_edges']:.2f}, ID={graph_info['id']} ({optimizer})"
@@ -278,12 +279,13 @@ class RunQAOAPlugin(QAOACommandPlugin):
             
         metrics = selected_res['metrics']
         cfg = selected_res['qaoa_config']
+        most_probable_bitstring = max(quasi_dist.items(), key=lambda x: x[1])[0]
         
         plot_qaoa_dashboard(
             graph=graph,
             k=2,
             probs=probs,
-            best_bitstring=selected_res['qaoa_results']['best_measured_bitstring'],
+            best_bitstring=most_probable_bitstring,
             cost_history=metrics.get('optimization_history', []),
             trajectory_params=metrics.get('trajectory_params', []),
             title=f"QAOA Benchmark N={n_nodes}, D={density:.2f}, ID={graph_id} | p={cfg['p_value']}, {cfg['mixer']}, {cfg['optimizer']}"

@@ -18,6 +18,7 @@ def main():
     # Register all plugins
     kernel.register_plugin(RunQAOAPlugin())
     kernel.register_plugin(PlotLandscapePlugin())
+    kernel.register_plugin(PlotGradientDescentPlugin())
     kernel.register_plugin(BenchmarkingPlugin())
     kernel.register_plugin(VisualizeBenchmarksPlugin())
     
